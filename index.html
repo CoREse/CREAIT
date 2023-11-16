@@ -25,9 +25,18 @@
         background-color: #fff;
         cursor: pointer;
         text-align: left;
+        outline: none;
+        transition: background-color 0.3s;
     }
     #chat-list button:hover {
         background-color: #f0f0f0;
+    }
+    #chat-list button.current-chat {
+        background-color: #e7f3ff;
+        font-weight: bold;
+        color: #004085;
+        border-left: 4px solid #007bff;
+        margin-left: -4px;
     }
     #chat-window {
         flex-grow: 1;
@@ -40,18 +49,45 @@
         overflow-y: auto;
     }
     .message {
-        margin-bottom: 10px;
+        margin-bottom: 0px;
         padding: 10px;
         border-radius: 5px;
-        max-width: 70%;
+        width: auto;
+        /* min-width: 95%;
+        max-width: 95%; */
     }
     .user {
         background-color: #dcf8c6;
-        align-self: flex-end;
+        align-self: flex-start;
     }
     .assistant {
         background-color: #fff;
         align-self: flex-start;
+    }
+    .error {
+        align-self: flex-start;
+    }
+    .entry {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        /* padding-bottom: 0.5em; */
+        margin-bottom: 10px;
+    }
+    .usage {
+        position: relative;
+        /* bottom: 0;
+        left: 0; */
+        font-size: 0.75em;
+        padding: 0px 5px;
+        color: #666;
+        /* background-color: rgba(255, 255, 255, 0.8); */
+        border-radius: 3px;
+        /* margin: 0px; */
+        /* max-width: 30%; */
+        /* overflow: hidden; */
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     #message-input {
         display: flex;
@@ -116,10 +152,11 @@
     </div>
 </div>
 <div id="settings-dialog">
-    <input type="text" id="api-url" placeholder="https://api.openai.com">
-    <input type="text" id="api-key" placeholder="OpenAI API Key">
-    <input type="text" id="default-model" placeholder="Default Model (e.g., text-davinci-003)">
-    <input type="number" id="context-number" placeholder=5>
+    <p>API URL: <input type="text" id="api-url"></p>
+    <p>API key: <input type="text" id="api-key"></p>
+    <p>Default model: <input type="text" id="default-model"></p>
+    <p>Max context number (exclude current message): <input type="number" id="context-number"></p>
+    <p>Max context tokens (exclude current message): <input type="number" id="context-tokens"></p>
     <button onclick="saveSettings()">Save Settings</button>
     <button onclick="closeSettings()">Close</button>
 </div>
@@ -128,9 +165,10 @@
     let chats = {};
     let settings = {
         apiKey: '',
-        defaultModel: 'text-davinci-003',
+        defaultModel: 'gpt-3.5-turbo-1106',
         apiUrl: 'https://api.openai.com',
-        contextNumber:5
+        contextNumber:5,
+        contextTokens:8192
     };
 
     // Load settings and chats from local storage
@@ -143,7 +181,12 @@
     function loadSettings() {
         const savedSettings = localStorage.getItem('settings');
         if (savedSettings) {
-            settings = JSON.parse(savedSettings);
+            savedSettingsObj = JSON.parse(savedSettings);
+            for (const key in savedSettingsObj) {
+                if (key in settings) {
+                    settings[key]=savedSettingsObj[key];
+                }
+            }
         }
     }
 
@@ -152,6 +195,10 @@
         if (savedChats) {
             chats = JSON.parse(savedChats);
         }
+        if (Object.keys(chats).length!=0)
+        {
+            currentChatId=Object.keys(chats)[0];
+        }
     }
 
     function renderChats() {
@@ -159,14 +206,20 @@
         chatList.innerHTML = '<button onclick="newChat()">New Chat</button>';
         Object.keys(chats).forEach(chatId => {
             const button = document.createElement('button');
+            if (chatId==currentChatId) button.classList.add("current-chat");
             button.textContent = `Chat ${chatId}`;
             button.onclick = () => switchChat(chatId);
             chatList.appendChild(button);
         });
+        if (currentChatId!=null)
+        {
+            renderMessages(chats[currentChatId]);
+        }
     }
 
     function switchChat(chatId) {
         currentChatId = chatId;
+        renderChats();
         renderMessages(chats[chatId]);
     }
 
@@ -182,6 +235,23 @@
             entryDiv.classList.add('entry')
             entryDiv.innerHTML=message.message.role
             entryDiv.appendChild(messageDiv)
+            let usageString=""
+            if (message.usage)
+            {
+                usageString+=`Token usage: ${message.usage.prompt_tokens} prompt, ${message.usage.completion_tokens} completion, ${message.usage.total_tokens} total.`
+            }
+            if (message.messageTokens)
+            {
+                if (usageString!="") usageString+=" ";
+                usageString+=`Message tokens: ${message.messageTokens}.`
+            }
+            if (usageString!="")
+            {
+                const usageDiv=document.createElement("div");
+                usageDiv.innerHTML=usageString;
+                usageDiv.classList.add("usage");
+                entryDiv.appendChild(usageDiv);
+            }
             messagePanel.appendChild(entryDiv);
         });
         messagePanel.scrollTop = messagePanel.scrollHeight;
@@ -227,12 +297,23 @@
         //     if (message.message.role === 'user') continue;
         //     context.push(message.message.content);
         // }
-        const contextMessage=[]
-        context.forEach(m=>{
-            contextMessage.push(m.message);
-        })
+        const contextMessage=[];
+        let messageTokens=0;
+        const reversedContext=context.reverse()
+        for (m of reversedContext)
+        {
+            if (messageTokens+m.messageTokens<=settings.contextTokens)
+            {
+                contextMessage.unshift(m.message);
+                messageTokens+=m.messageTokens;
+            }
+            else
+            {
+                break;
+            }
+        }
         contextMessage.push(messages[index].message)
-        return contextMessage;
+        return {messages:contextMessage,tokens:messageTokens};
     }
 
     function callOpenAI(chatID,index) {
@@ -240,7 +321,7 @@
         console.log(context)
         const data = {
             model: settings.defaultModel,
-            messages: context
+            messages: context.messages
         };
 
         fetch(settings.apiUrl+'/v1/chat/completions', {
@@ -255,8 +336,10 @@
         .then(data => {
             console.log(data)
             const aiMessage = data.choices[0].message;
+            const responseUsage=data.usage;
             chats[chatID][index].fulfilled=true;
-            addMessage({message:aiMessage});
+            chats[chatID][index].messageTokens=responseUsage.prompt_tokens-context.tokens;
+            addMessage({message:aiMessage, usage:responseUsage, messageTokens:responseUsage.completion_tokens});
         })
         .catch(error => {
             console.error('Error:', error);
@@ -270,6 +353,7 @@
         document.getElementById('default-model').value = settings.defaultModel;
         document.getElementById('api-url').value = settings.apiUrl;
         document.getElementById('context-number').value = settings.contextNumber;
+        document.getElementById('context-tokens').value = settings.contextTokens;
     }
 
     function saveSettings() {
