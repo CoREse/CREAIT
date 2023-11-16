@@ -176,11 +176,11 @@
         messages.forEach(message => {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
-            messageDiv.classList.add(message.role);
-            messageDiv.innerHTML = message.content;
+            messageDiv.classList.add(message.message.role);
+            messageDiv.innerHTML = message.message.content;
             const entryDiv=document.createElement('div');
             entryDiv.classList.add('entry')
-            entryDiv.innerHTML=message.role
+            entryDiv.innerHTML=message.message.role
             entryDiv.appendChild(messageDiv)
             messagePanel.appendChild(entryDiv);
         });
@@ -199,9 +199,11 @@
         const input = document.getElementById('message-text');
         const message = input.value.trim();
         if (message === '') return;
-        addMessage({role: "user", content:message});
+        packedMessage = {message:{role: "user", content:message}, fulfilled: false}
+        addMessage(packedMessage);
+        const chatID=currentChatId;
         input.value = '';
-        callOpenAI(message);
+        callOpenAI(chatID,chats[chatID].length-1);
     }
 
     function addMessage(message) {
@@ -215,8 +217,26 @@
         localStorage.setItem('chats', JSON.stringify(chats));
     }
 
-    function callOpenAI(message) {
-        const context=chats[currentChatId].filter((message)=>message.role!="error").slice(-settings.contextNumber-1)
+    function getContext(messages,index) {
+        // console.log(messages)
+        let context=[];
+        if (settings.contextNumber!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.contextNumber);
+        // for (let i = index - settings.contextNumber; i <= index; i++) {
+        //     if (i < 0) continue;
+        //     const message = messages[i];
+        //     if (message.message.role === 'user') continue;
+        //     context.push(message.message.content);
+        // }
+        const contextMessage=[]
+        context.forEach(m=>{
+            contextMessage.push(m.message);
+        })
+        contextMessage.push(messages[index].message)
+        return contextMessage;
+    }
+
+    function callOpenAI(chatID,index) {
+        const context=getContext(chats[chatID],index);
         console.log(context)
         const data = {
             model: settings.defaultModel,
@@ -233,12 +253,14 @@
         })
         .then(response => response.json())
         .then(data => {
+            console.log(data)
             const aiMessage = data.choices[0].message;
-            addMessage(aiMessage);
+            chats[chatID][index].fulfilled=true;
+            addMessage({message:aiMessage});
         })
         .catch(error => {
             console.error('Error:', error);
-            addMessage({role:"error", content:'OpenAI: Error communicating with the API.'});
+            addMessage({message:{role:"error", content:'OpenAI: Error communicating with the API.'}});
         });
     }
 
@@ -246,11 +268,15 @@
         document.getElementById('settings-dialog').style.display = 'block';
         document.getElementById('api-key').value = settings.apiKey;
         document.getElementById('default-model').value = settings.defaultModel;
+        document.getElementById('api-url').value = settings.apiUrl;
+        document.getElementById('context-number').value = settings.contextNumber;
     }
 
     function saveSettings() {
         settings.apiKey = document.getElementById('api-key').value.trim();
         settings.defaultModel = document.getElementById('default-model').value.trim();
+        settings.apiUrl = document.getElementById('api-url').value.trim();
+        settings.contextNumber=document.getElementById('context-number').value.trim();
         localStorage.setItem('settings', JSON.stringify(settings));
         closeSettings();
     }
