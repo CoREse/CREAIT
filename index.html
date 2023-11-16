@@ -45,11 +45,11 @@
         border-radius: 5px;
         max-width: 70%;
     }
-    .you {
+    .user {
         background-color: #dcf8c6;
         align-self: flex-end;
     }
-    .openai {
+    .assistant {
         background-color: #fff;
         align-self: flex-start;
     }
@@ -116,8 +116,10 @@
     </div>
 </div>
 <div id="settings-dialog">
+    <input type="text" id="api-url" placeholder="https://api.openai.com">
     <input type="text" id="api-key" placeholder="OpenAI API Key">
     <input type="text" id="default-model" placeholder="Default Model (e.g., text-davinci-003)">
+    <input type="number" id="context-number" placeholder=5>
     <button onclick="saveSettings()">Save Settings</button>
     <button onclick="closeSettings()">Close</button>
 </div>
@@ -126,7 +128,9 @@
     let chats = {};
     let settings = {
         apiKey: '',
-        defaultModel: 'text-davinci-003'
+        defaultModel: 'text-davinci-003',
+        apiUrl: 'https://api.openai.com',
+        contextNumber:5
     };
 
     // Load settings and chats from local storage
@@ -172,9 +176,13 @@
         messages.forEach(message => {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
-            messageDiv.classList.add(message.sender);
+            messageDiv.classList.add(message.role);
             messageDiv.innerHTML = message.content;
-            messagePanel.appendChild(messageDiv);
+            const entryDiv=document.createElement('div');
+            entryDiv.classList.add('entry')
+            entryDiv.innerHTML=message.role
+            entryDiv.appendChild(messageDiv)
+            messagePanel.appendChild(entryDiv);
         });
         messagePanel.scrollTop = messagePanel.scrollHeight;
     }
@@ -191,14 +199,14 @@
         const input = document.getElementById('message-text');
         const message = input.value.trim();
         if (message === '') return;
-        addMessage('you', `You: ${message}`);
+        addMessage({role: "user", content:message});
         input.value = '';
         callOpenAI(message);
     }
 
-    function addMessage(sender, content) {
+    function addMessage(message) {
         if (!currentChatId) return;
-        chats[currentChatId].push({ sender, content });
+        chats[currentChatId].push(message);
         saveChats();
         renderMessages(chats[currentChatId]);
     }
@@ -208,12 +216,14 @@
     }
 
     function callOpenAI(message) {
+        const context=chats[currentChatId].filter((message)=>message.role!="error").slice(-settings.contextNumber-1)
+        console.log(context)
         const data = {
             model: settings.defaultModel,
-            messages: [{ role: "user", content: message }]
+            messages: context
         };
 
-        fetch('https://api.openai.com/v1/chat/completions', {
+        fetch(settings.apiUrl+'/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -223,12 +233,12 @@
         })
         .then(response => response.json())
         .then(data => {
-            const aiMessage = data.choices[0].message.content;
-            addMessage('openai', `OpenAI: ${aiMessage}`);
+            const aiMessage = data.choices[0].message;
+            addMessage(aiMessage);
         })
         .catch(error => {
             console.error('Error:', error);
-            addMessage('openai', 'OpenAI: Error communicating with the API.');
+            addMessage({role:"error", content:'OpenAI: Error communicating with the API.'});
         });
     }
 
