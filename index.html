@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenAI Chat</title>
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        height: 100vh;
+        background-color: #f7f7f7;
+    }
+    #chat-list {
+        width: 250px;
+        border-right: 1px solid #ddd;
+        overflow-y: auto;
+    }
+    #chat-list button {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        background-color: #fff;
+        cursor: pointer;
+        text-align: left;
+    }
+    #chat-list button:hover {
+        background-color: #f0f0f0;
+    }
+    #chat-window {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    #message-panel {
+        flex-grow: 1;
+        padding: 20px;
+        overflow-y: auto;
+    }
+    .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 70%;
+    }
+    .you {
+        background-color: #dcf8c6;
+        align-self: flex-end;
+    }
+    .openai {
+        background-color: #fff;
+        align-self: flex-start;
+    }
+    #message-input {
+        display: flex;
+        padding: 10px;
+        background-color: #fff;
+        border-top: 1px solid #ddd;
+    }
+    #message-input input {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        margin-right: 10px;
+        border-radius: 5px;
+    }
+    #message-input button {
+        padding: 10px 20px;
+        border: none;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+    #settings-dialog {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    #settings-dialog input,
+    #settings-dialog button {
+        display: block;
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    #settings-dialog button {
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+<div id="chat-list">
+    <button onclick="newChat()">New Chat</button>
+    <!-- Chat list will be dynamically inserted here -->
+</div>
+<div id="chat-window">
+    <div id="message-panel">
+        <!-- Messages will be dynamically inserted here -->
+    </div>
+    <div id="message-input">
+        <input type="text" id="message-text" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+<div id="settings-dialog">
+    <input type="text" id="api-key" placeholder="OpenAI API Key">
+    <input type="text" id="default-model" placeholder="Default Model (e.g., text-davinci-003)">
+    <button onclick="saveSettings()">Save Settings</button>
+    <button onclick="closeSettings()">Close</button>
+</div>
+<script>
+    let currentChatId = null;
+    let chats = {};
+    let settings = {
+        apiKey: '',
+        defaultModel: 'text-davinci-003'
+    };
+
+    // Load settings and chats from local storage
+    window.onload = function() {
+        loadSettings();
+        loadChats();
+        renderChats();
+    };
+
+    function loadSettings() {
+        const savedSettings = localStorage.getItem('settings');
+        if (savedSettings) {
+            settings = JSON.parse(savedSettings);
+        }
+    }
+
+    function loadChats() {
+        const savedChats = localStorage.getItem('chats');
+        if (savedChats) {
+            chats = JSON.parse(savedChats);
+        }
+    }
+
+    function renderChats() {
+        const chatList = document.getElementById('chat-list');
+        chatList.innerHTML = '<button onclick="newChat()">New Chat</button>';
+        Object.keys(chats).forEach(chatId => {
+            const button = document.createElement('button');
+            button.textContent = `Chat ${chatId}`;
+            button.onclick = () => switchChat(chatId);
+            chatList.appendChild(button);
+        });
+    }
+
+    function switchChat(chatId) {
+        currentChatId = chatId;
+        renderMessages(chats[chatId]);
+    }
+
+    function renderMessages(messages) {
+        const messagePanel = document.getElementById('message-panel');
+        messagePanel.innerHTML = '';
+        messages.forEach(message => {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(message.sender);
+            messageDiv.innerHTML = message.content;
+            messagePanel.appendChild(messageDiv);
+        });
+        messagePanel.scrollTop = messagePanel.scrollHeight;
+    }
+
+    function newChat() {
+        const chatId = Date.now().toString();
+        chats[chatId] = [];
+        currentChatId = chatId;
+        renderChats();
+        renderMessages([]);
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('message-text');
+        const message = input.value.trim();
+        if (message === '') return;
+        addMessage('you', `You: ${message}`);
+        input.value = '';
+        callOpenAI(message);
+    }
+
+    function addMessage(sender, content) {
+        if (!currentChatId) return;
+        chats[currentChatId].push({ sender, content });
+        saveChats();
+        renderMessages(chats[currentChatId]);
+    }
+
+    function saveChats() {
+        localStorage.setItem('chats', JSON.stringify(chats));
+    }
+
+    function callOpenAI(message) {
+        const data = {
+            model: settings.defaultModel,
+            messages: [{ role: "user", content: message }]
+        };
+
+        fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${settings.apiKey}`
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const aiMessage = data.choices[0].message.content;
+            addMessage('openai', `OpenAI: ${aiMessage}`);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            addMessage('openai', 'OpenAI: Error communicating with the API.');
+        });
+    }
+
+    function openSettings() {
+        document.getElementById('settings-dialog').style.display = 'block';
+        document.getElementById('api-key').value = settings.apiKey;
+        document.getElementById('default-model').value = settings.defaultModel;
+    }
+
+    function saveSettings() {
+        settings.apiKey = document.getElementById('api-key').value.trim();
+        settings.defaultModel = document.getElementById('default-model').value.trim();
+        localStorage.setItem('settings', JSON.stringify(settings));
+        closeSettings();
+    }
+
+    function closeSettings() {
+        document.getElementById('settings-dialog').style.display = 'none';
+    }
+
+    // Add settings button
+    const settingsButton = document.createElement('button');
+    settingsButton.textContent = 'Settings';
+    settingsButton.style.position = 'absolute';
+    settingsButton.style.top = '10px';
+    settingsButton.style.right = '10px';
+    settingsButton.onclick = openSettings;
+    document.body.appendChild(settingsButton);
+</script>
+</body>
+</html>
