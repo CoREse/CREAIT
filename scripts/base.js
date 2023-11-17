@@ -14,11 +14,6 @@ window.onload = function() {
     loadChats();
     renderChats();
 };
-// document.getElementById('message-text').addEventListener('keypress', function(event) {
-// if (event.key === 'Enter') {
-//     sendMessage();
-// }
-// });
 
 function getTokenNumber(message,model) {
     const encoder=window.tiktoken.encodingForModel(model);
@@ -147,7 +142,6 @@ function newChat() {
 function sendMessage(event) {
     if (event) event.preventDefault();
     const input = document.getElementById('message-text');
-    // const message = input.value.trim();
     const message = convertNewlinesToMarkdown(input.value.trim());
     if (message === '') return;
     packedMessage = {message:{role: "user", content:message}, fulfilled: false}
@@ -171,15 +165,8 @@ function saveChats() {
 }
 
 function getContext(messages,index) {
-    // console.log(messages)
     let context=[];
     if (settings.contextNumber!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.contextNumber);
-    // for (let i = index - settings.contextNumber; i <= index; i++) {
-    //     if (i < 0) continue;
-    //     const message = messages[i];
-    //     if (message.message.role === 'user') continue;
-    //     context.push(message.message.content);
-    // }
     const contextMessage=[];
     let messageTokens=0;
     const reversedContext=context.reverse()
@@ -236,7 +223,6 @@ async function callOpenAIStream(chatID,index) {
                 const chunk = new TextDecoder().decode(value);
 
                 for (c of chunk.split("\n")){
-                    // console.log(c)
                     if (c!="")
                     {
                         let data;
@@ -248,6 +234,7 @@ async function callOpenAIStream(chatID,index) {
                         {
                             continue;
                         }
+                        // Check if finish_reason is present and not null
                         if (data.choices!=null && data.choices!=undefined && data.choices.length>0 && data.choices[0].finish_reason != null) {
                             finishReason = data.choices[0].finish_reason;
                             if (finishReason != "stop")
@@ -262,7 +249,6 @@ async function callOpenAIStream(chatID,index) {
                         if (data.choices[0].delta==undefined || data.choices[0].delta.content==undefined) continue;
                         aiMessage += data.choices[0].delta.content;
                         if (aiRole=="") aiRole = data.choices[0].delta.role;
-                        // Check if finish_reason is present and not null
                     }
                 }
                 currentUsage.completion_tokens=getTokenNumber(aiMessage,settings.defaultModel);
@@ -292,73 +278,6 @@ async function callOpenAIStream(chatID,index) {
         console.error('Fetch error:', error);
         addMessage(chatID, { message: { role: "error", content: `OpenAI: Error communicating with the API. Error: ${error}` } });
     }
-}
-
-function callOpenAIStream0(chatID,index) {
-    const context = getContext(chats[chatID], index);
-    console.log(context);
-    const headers = new Headers({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`
-    });
-    const data = {
-        model: settings.defaultModel,
-        messages: context.messages,
-        stream: true
-    };
-    // // Establish a WebSocket connection to the streaming endpoint
-    // const ws = new WebSocket(settings.apiUrl+'/v1/chat/completions', {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${settings.apiKey}`
-    // });
-
-    // ws.onopen = () => {
-    //     // Send the initial data to the WebSocket connection
-    //     ws.send(JSON.stringify(data));
-    // };
-
-    // let aiMessage=""
-    // chats[chatID][index].messageTokens=getTokenNumber(chats[chatID][index].message.content);
-    // const currentUsage={prompt_tokens:context.tokens+chats[chatID][index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID][index].messageTokens}
-    // let responseIndex=null;
-    // ws.onmessage = (event) => {
-    //     // Parse the incoming message from the WebSocket connection
-    //     const response = JSON.parse(event.data);
-
-    //     if (response.type === 'message') {
-    //         aiMessage += response.data.choices[0].message;
-    //         currentUsage.completion_tokens==getTokenNumber(aiMessage);
-    //         if (responseIndex==null) responseIndex=addMessage(chatID, {message: aiMessage, usage: currentUsage, messageTokens: currentUsage.completion_tokens});
-    //         else
-    //         {
-    //             chats[chatID][responseIndex]={message:aiMessage, usage:currentUsage, messageTokens:currentUsage.completion_tokens};
-    //             if (chatID==currentChatId) renderMessages();
-    //         }
-    //     }
-
-    //     // Check if the finish_reason is not null, indicating the end of the stream
-    //     if (response.data.choices[0].finish_reason !== null) {
-    //         // Close the WebSocket connection
-    //         ws.close();
-    //         if (response.data.choices[0].finish_reason != "stop")
-    //         {
-    //             addMessage(chatID, { message: { role: "error", content: `OpenAI: finished with reason ${response.data.choices[0].finish_reason}.` } });
-    //         }
-    //         else
-    //         {
-    //             chats[chatID][index].fulfilled = true;
-    //         }
-    //     }
-    // };
-
-    // ws.onerror = (error) => {
-    //     console.error('WebSocket Error:', error);
-    //     addMessage(chatID, { message: { role: "error", content: 'OpenAI: Error communicating with the API via WebSocket.' } });
-    // };
-
-    // ws.onclose = (event) => {
-    //     console.log('WebSocket Closed:', event);
-    // };
 }
 
 function callOpenAI(chatID,index) {
