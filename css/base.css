@@ -53,14 +53,19 @@ body {
     max-width: 95%; */
 }
 .user {
-    background-color: #dcf8c6;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
     align-self: flex-start;
 }
 .assistant {
-    background-color: #fff;
+    background-color: #ffffff;
+    border-color: rgb(74, 115, 168);
+    border-style: groove;
+    border-width: 1px;
     align-self: flex-start;
 }
 .error {
+    color: red;
     align-self: flex-start;
 }
 .entry {
