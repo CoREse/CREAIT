@@ -1,12 +1,94 @@
 let currentChatId = null;
 let chats = {};
-let settings = {
-    apiKey: '',
-    defaultModel: 'gpt-3.5-turbo-1106',
-    apiUrl: 'https://api.openai.com',
-    contextNumber:5,
-    contextTokens:8192
+let modelList=[
+    'gpt-3.5-turbo-1106',
+    'gpt-4-1106-preview'
+]
+
+class Settings
+{
+    constructor(copy=null){
+        if (copy!=null)
+        {
+            for (key of Object.keys(copy))
+            {
+                this[key]=copy[key];
+            }
+        }
+    };
+    genHeaders(){
+        return new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.getAttribute("apiKey")}`
+        });
+    }
+    genBody(messages)
+    {
+        return {
+            model: this.getAttribute("model"),
+            messages: messages,
+            stream: true
+        }
+    };
+    getAttribute(Attr) {
+        return this[Attr]==undefined?Settings.defaultSettings[Attr]:this[Attr];
+    }
+    static defaultSettingsInitial={
+        apiKey: '',
+        model: 'gpt-3.5-turbo-1106',
+        apiUrl: 'https://api.openai.com',
+        contextNumber:5,
+        contextTokens:8192
+    };
+    static defaultSettings={...Settings.defaultSettingsInitial};
 };
+
+function openSettings(event, settings=null) {
+    document.getElementById('settings-dialog').style.display = 'block';
+    if (settings==null)
+    {
+        document.getElementById('api-key').value = Settings.defaultSettings.apiKey;
+        document.getElementById('model').value = Settings.defaultSettings.model;
+        document.getElementById('api-url').value = Settings.defaultSettings.apiUrl;
+        document.getElementById('context-number').value = Settings.defaultSettings.contextNumber;
+        document.getElementById('context-tokens').value = Settings.defaultSettings.contextTokens;
+    }
+    else
+    {
+        document.getElementById('api-key').value = settings.getAttribute("apiKey");
+        document.getElementById('model').value = settings.getAttribute("model");
+        document.getElementById('api-url').value = settings.getAttribute("apiUrl");
+        document.getElementById('context-number').value = settings.getAttribute("contextNumber");
+        document.getElementById('context-tokens').value = settings.getAttribute("contextTokens");
+    }
+}
+
+function saveSettings(settings=null) {
+    if (settings==null)
+    {
+        Settings.defaultSettings.apiKey = document.getElementById('api-key').value.trim();
+        Settings.defaultSettings.model = document.getElementById('model').value.trim();
+        Settings.defaultSettings.apiUrl = document.getElementById('api-url').value.trim();
+        Settings.defaultSettings.contextNumber=document.getElementById('context-number').value.trim();
+        Settings.defaultSettings.contextTokens=document.getElementById('context-tokens').value.trim();
+        localStorage.setItem('defaultSettings', JSON.stringify(Settings.defaultSettings));
+    }
+    else
+    {
+        for (key of ['api-key', "model", "api-url", "context-number", "context-tokens"])
+        {
+            const value=document.getElementById(key).value.trim();
+            if (value.slice(0, 10)=="*default*") settings[key]=undefined;
+            else settings[key]=value;
+        }
+        saveChats();
+    }
+    closeSettings();
+}
+
+function closeSettings() {
+    document.getElementById('settings-dialog').style.display = 'none';
+}
 
 // Load settings and chats from local storage
 window.onload = function() {
@@ -15,46 +97,13 @@ window.onload = function() {
     renderChats();
 };
 
-function getTokenNumber(message,model) {
-    const encoder=window.tiktoken.encodingForModel(model);
-    return encoder.encode(message).length;
-}
-
-function getLastUserMessage(messages) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].message.role=="user") return messages[i].message.content;
-    }
-    return "";
-}
-function handleMessageInput(event) {
-    var textArea = event.target;
-
-    if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-    if (event.key ==="ArrowUp" && textArea.value=="") 
-    {
-        if (currentChatId) textArea.value=getLastUserMessage(chats[currentChatId]);
-    }
-}
-function convertNewlinesToMarkdown(text) {
-    const parts = text.split(/(```[\s\S]*?```)/);
-    for (let i = 0; i < parts.length; i++) {
-        if (i % 2 === 0) {
-            parts[i] = parts[i].replace(/\n(?!\n)/g, '\n\n');
-        }
-    }
-    return parts.join('');
-}
-
 function loadSettings() {
-    const savedSettings = localStorage.getItem('settings');
-    if (savedSettings) {
-        savedSettingsObj = JSON.parse(savedSettings);
-        for (const key in savedSettingsObj) {
-            if (key in settings) {
-                settings[key]=savedSettingsObj[key];
+    const savedDefaultSettings = localStorage.getItem('defaultSettings');
+    if (savedDefaultSettings) {
+        savedDefaultSettingsObj = JSON.parse(savedDefaultSettings);
+        for (const key in savedDefaultSettingsObj) {
+            if (key in Settings.defaultSettings) {
+                Settings.defaultSettings[key]=savedDefaultSettingsObj[key];
             }
         }
     }
@@ -64,6 +113,10 @@ function loadChats() {
     const savedChats = localStorage.getItem('chats');
     if (savedChats) {
         chats = JSON.parse(savedChats);
+    }
+    for (chatID of Object.keys(chats))
+    {
+        chats[chatID].settings=new Settings(chats[chatID].settings);
     }
     if (Object.keys(chats).length!=0)
     {
@@ -94,7 +147,7 @@ function switchChat(chatId) {
 }
 
 function renderMessages() {
-    const messages=chats[currentChatId];
+    const messages=chats[currentChatId].messages;
     const messagePanel = document.getElementById('message-panel');
     messagePanel.innerHTML = '';
     messages.forEach(message => {
@@ -133,10 +186,45 @@ function renderMessages() {
 
 function newChat() {
     const chatId = Date.now().toString();
-    chats[chatId] = [];
+    chats[chatId] = {settings: new Settings(), messages:[]};
     currentChatId = chatId;
     renderChats();
     renderMessages();
+}
+
+function getTokenNumber(message,model) {
+    const encoder=window.tiktoken.encodingForModel(model);
+    return encoder.encode(message).length;
+}
+
+function getLastUserMessage(messages) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].message.role=="user") return messages[i].message.content;
+    }
+    return "";
+}
+
+function handleMessageInput(event) {
+    var textArea = event.target;
+
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+    if (event.key ==="ArrowUp" && textArea.value=="") 
+    {
+        if (currentChatId) textArea.value=getLastUserMessage(chats[currentChatId].messages);
+    }
+}
+
+function convertNewlinesToMarkdown(text) {
+    const parts = text.split(/(```[\s\S]*?```)/);
+    for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+            parts[i] = parts[i].replace(/\n(?!\n)/g, '\n\n');
+        }
+    }
+    return parts.join('');
 }
 
 function sendMessage(event) {
@@ -148,13 +236,13 @@ function sendMessage(event) {
     const chatID=currentChatId;
     addMessage(chatID, packedMessage);
     input.value = '';
-    callOpenAIStream(chatID,chats[chatID].length-1);
+    callOpenAIStream(chatID,chats[chatID].messages.length-1,chats[chatID].settings);
 }
 
 function addMessage(chatID, message, location=null) {
     if (!chatID) return;
-    if (location==null) location=chats[chatID].length
-    chats[chatID].splice(location,0,message);
+    if (location==null) location=chats[chatID].messages.length
+    chats[chatID].messages.splice(location,0,message);
     saveChats();
     if (chatID==currentChatId) renderMessages();
     return location;
@@ -164,16 +252,16 @@ function saveChats() {
     localStorage.setItem('chats', JSON.stringify(chats));
 }
 
-function getContext(messages,index) {
+function getContext(messages,index,settings) {
     let context=[];
-    if (settings.contextNumber!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.contextNumber);
+    if (settings.getAttribute("contextNumber")!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.getAttribute("contextNumber"));
     const contextMessage=[];
     let messageTokens=0;
     const reversedContext=context.reverse()
     for (m of reversedContext)
     {
-        if (m.messageTokens==undefined) m.messageTokens=getTokenNumber(JSON.stringify(m.message),settings.defaultModel);
-        if (messageTokens+m.messageTokens<=settings.contextTokens)
+        if (m.messageTokens==undefined) m.messageTokens=getTokenNumber(JSON.stringify(m.message),settings.getAttribute("model"));
+        if (messageTokens+m.messageTokens<=settings.getAttribute("contextTokens"))
         {
             contextMessage.unshift(m.message);
             messageTokens+=m.messageTokens;
@@ -187,20 +275,20 @@ function getContext(messages,index) {
     return {messages:contextMessage,tokens:messageTokens};
 }
 
-async function callOpenAIStream(chatID,index) {
-    const context = getContext(chats[chatID], index);
+async function callOpenAIStream(chatID,index,settings) {
+    const context = getContext(chats[chatID].messages, index, settings);
     console.log(context);
     const headers = new Headers({
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`
+        'Authorization': `Bearer ${settings.getAttribute("apiKey")}`
     });
     const data = {
-        model: settings.defaultModel,
+        model: settings.getAttribute("model"),
         messages: context.messages,
         stream: true
     };
     try {
-        const response = await fetch(settings.apiUrl+'/v1/chat/completions', {
+        const response = await fetch(settings.getAttribute('apiUrl')+'/v1/chat/completions', {
         method: 'POST',
         headers: headers,
         body: JSON.stringify(data)
@@ -208,8 +296,8 @@ async function callOpenAIStream(chatID,index) {
 
         let aiMessage="";
         let aiRole="";
-        chats[chatID][index].messageTokens=getTokenNumber(JSON.stringify(chats[chatID][index].message),settings.defaultModel);
-        const currentUsage={prompt_tokens:context.tokens+chats[chatID][index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID][index].messageTokens}
+        chats[chatID].messages[index].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[index].message),settings.getAttribute("model"));
+        const currentUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
         let responseIndex=null;
         // Check if the response is okay and supports streaming
         if (response.ok && response.body) {
@@ -243,7 +331,7 @@ async function callOpenAIStream(chatID,index) {
                             }
                             else
                             {
-                                chats[chatID][index].fulfilled = true;
+                                chats[chatID].messages[index].fulfilled = true;
                             }
                         }
                         if (data.choices[0].delta==undefined || data.choices[0].delta.content==undefined) continue;
@@ -251,15 +339,15 @@ async function callOpenAIStream(chatID,index) {
                         if (aiRole=="") aiRole = data.choices[0].delta.role;
                     }
                 }
-                currentUsage.completion_tokens=getTokenNumber(aiMessage,settings.defaultModel);
+                currentUsage.completion_tokens=getTokenNumber(aiMessage,settings.getAttribute("model"));
                 currentUsage.total_tokens=currentUsage.prompt_tokens+currentUsage.completion_tokens;
                 // console.log(aiMessage, currentUsage.completion_tokens);
                 if (responseIndex==null) responseIndex=addMessage(chatID, {message: {role:aiRole,content:aiMessage}, usage: currentUsage, messageTokens: currentUsage.completion_tokens});
                 else
                 {
-                    chats[chatID][responseIndex].message.content=aiMessage;
-                    chats[chatID][responseIndex].usage=currentUsage;
-                    chats[chatID][responseIndex].messageTokens=currentUsage.completion_tokens;
+                    chats[chatID].messages[responseIndex].message.content=aiMessage;
+                    chats[chatID].messages[responseIndex].usage=currentUsage;
+                    chats[chatID].messages[responseIndex].messageTokens=currentUsage.completion_tokens;
                     // console.log(chats[chatID][responseIndex]);
                 }
                 saveChats();
@@ -280,19 +368,19 @@ async function callOpenAIStream(chatID,index) {
     }
 }
 
-function callOpenAI(chatID,index) {
-    const context=getContext(chats[chatID],index);
+function callOpenAI(chatID,index,settings) {
+    const context=getContext(chats[chatID].messages,index,settings);
     console.log(context)
     const data = {
-        model: settings.defaultModel,
+        model: settings.getAttribute("model"),
         messages: context.messages
     };
 
-    fetch(settings.apiUrl+'/v1/chat/completions', {
+    fetch(settings.getAttribute('apiUrl')+'/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.apiKey}`
+            'Authorization': `Bearer ${settings.getAttribute("apiKey")}`
         },
         body: JSON.stringify(data)
     })
@@ -301,36 +389,14 @@ function callOpenAI(chatID,index) {
         console.log(data)
         const aiMessage = data.choices[0].message;
         const responseUsage=data.usage;
-        chats[chatID][index].fulfilled=true;
-        chats[chatID][index].messageTokens=responseUsage.prompt_tokens-context.tokens;
-        addMessage(chatID,{message:aiMessage, usage:responseUsage, messageTokens:getTokenNumber(aiMessage,settings.defaultModel)});
+        chats[chatID].messages[index].fulfilled=true;
+        chats[chatID].messages[index].messageTokens=responseUsage.prompt_tokens-context.tokens;
+        addMessage(chatID,{message:aiMessage, usage:responseUsage, messageTokens:getTokenNumber(aiMessage,settings.getAttribute('model'))});
     })
     .catch(error => {
         console.error('Error:', error);
         addMessage(chatID,{message:{role:"error", content:'OpenAI: Error communicating with the API.'}});
     });
-}
-
-function openSettings() {
-    document.getElementById('settings-dialog').style.display = 'block';
-    document.getElementById('api-key').value = settings.apiKey;
-    document.getElementById('default-model').value = settings.defaultModel;
-    document.getElementById('api-url').value = settings.apiUrl;
-    document.getElementById('context-number').value = settings.contextNumber;
-    document.getElementById('context-tokens').value = settings.contextTokens;
-}
-
-function saveSettings() {
-    settings.apiKey = document.getElementById('api-key').value.trim();
-    settings.defaultModel = document.getElementById('default-model').value.trim();
-    settings.apiUrl = document.getElementById('api-url').value.trim();
-    settings.contextNumber=document.getElementById('context-number').value.trim();
-    localStorage.setItem('settings', JSON.stringify(settings));
-    closeSettings();
-}
-
-function closeSettings() {
-    document.getElementById('settings-dialog').style.display = 'none';
 }
 
 // Add settings button
