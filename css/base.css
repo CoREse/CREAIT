@@ -7,10 +7,6 @@ body {
     background-color: #f7f7f7;
 }
 #chat-list {
-    width: 250px;
-    flex-shrink: 0; /* Prevents the item from shrinking */
-    flex-grow: 0; /* Prevents the item from growing */
-    border-right: 1px solid #ddd;
     overflow-y: auto;
 }
 #chat-list button {
@@ -120,6 +116,7 @@ body {
 #settings-dialog button {
     display: block;
     width: 100%;
+    box-sizing: border-box;
     margin-bottom: 10px;
     padding: 10px;
     border: 1px solid #ddd;
@@ -141,4 +138,82 @@ pre {
 code {
     color: #333; /* Dark grey text */
     /* Additional styles for syntax highlighting can be added here */
+}
+
+#chat-header {
+    background-color: #f2f2f2; /* Light grey background */
+    padding: 10px; /* Add some padding around the content */
+    display: flex; /* Use flexbox to align items */
+    align-items: center; /* Center items vertically */
+    gap: 10px; /* Add space between items */
+    height: 25px;
+}
+
+#chat-title {
+    flex-grow: 1; /* Allow the title to take up remaining space */
+    font-size: 1.2em; /* Make the title a bit larger */
+    font-weight: bold; /* Make the title bold */
+}
+
+#quick-model-select {
+    padding: 5px; /* Add some padding inside the select box */
+    border: 1px solid #ccc; /* Add a light border */
+    border-radius: 5px; /* Slightly round the corners */
+}
+
+#quick-context-number {
+    width: 80%; /* Full width of its container */
+    margin: 5px 0; /* Add some margin above and below */
+}
+
+#quick-context-number-label {
+    min-width: 20px; /* Ensure the label does not collapse */
+    text-align: center; /* Center the text within the label */
+}
+
+#toolbar {
+    /* position: absolute; */
+    /* padding: 10px; */
+    border-top: 1px solid #ddd;
+    /* height : 40px; */
+    /* bottom: 0; */
+    /* width: 100%; */
+}
+
+#toolbar button {
+    width: 50%;
+    padding: 10px;
+    border: none;
+    background-color: #fff;
+    cursor: pointer;
+    text-align: center;
+    outline: none;
+    transition: background-color 0.3s;
+}
+
+#toolbar button:hover {
+    background-color: #f0f0f0;
+}
+
+#left-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 250px;
+    flex-shrink: 0; /* Prevents the item from shrinking */
+    flex-grow: 0; /* Prevents the item from growing */
+    border-right: 1px solid #ddd;
+}
+
+.quick-panel-item {
+    width: 200px;
+    height: 100%;
+    margin: 0px;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    padding: 0px;
+    justify-content: center;
 }

@@ -10,7 +10,7 @@ class Settings
     constructor(copy=null){
         if (copy!=null)
         {
-            for (key of Object.keys(copy))
+            for (let key of Object.keys(copy))
             {
                 this[key]=copy[key];
             }
@@ -90,6 +90,30 @@ function closeSettings() {
     document.getElementById('settings-dialog').style.display = 'none';
 }
 
+function quickChange(event) {
+    switch(event.target.id)
+    {
+        case "quick-model-select":
+            chats[currentChatId].settings.model=event.target.value;
+            if (event.target.value=='undefined') chats[currentChatId].settings.model=undefined;
+            saveChats();
+            break;
+        case "quick-context-number":
+            chats[currentChatId].settings.contextNumber=event.target.value;
+            if (event.target.value=='undefined') chats[currentChatId].settings.contextNumber=undefined;
+            saveChats();
+            quickContextNumberLabel=document.getElementById('quick-context-number-label');
+            quickContextNumberLabel.innerHTML=event.target.value;
+            break;
+        case "quick-reset-context-number":
+            chats[currentChatId].settings.contextNumber=undefined;
+            saveChats();
+            quickContextNumberLabel=document.getElementById('quick-context-number-label');
+            quickContextNumberLabel.innerHTML=document.getElementById('quick-context-number').value;
+            break;
+    }
+}
+
 // Load settings and chats from local storage
 window.onload = function() {
     loadSettings();
@@ -146,7 +170,27 @@ function switchChat(chatId) {
     renderMessages();
 }
 
+function renderHeader() {
+    document.getElementById('chat-title').value="Chat"+ currentChatId;
+    const quickModels=document.getElementById('quick-model-select');
+    quickModels.innerHTML="";
+    for (model of [undefined].concat(modelList))
+    {
+        const option=document.createElement("option");
+        option.value=model;
+        option.innerHTML=model==undefined?"*default*"+Settings.defaultSettings.model:model;
+        if (model==chats[currentChatId].settings.model) option.selected=true;
+        quickModels.appendChild(option);
+    }
+    const quickContextNumber=document.getElementById('quick-context-number');
+    quickContextNumber.value=chats[currentChatId].settings.contextNumber==undefined?Settings.defaultSettings.contextNumber:chats[currentChatId].settings.contextNumber;
+    const quickContextNumberLabel=document.getElementById('quick-context-number-label');
+    quickContextNumberLabel.innerHTML=quickContextNumber.value;
+    
+}
+
 function renderMessages() {
+    renderHeader();
     const messages=chats[currentChatId].messages;
     const messagePanel = document.getElementById('message-panel');
     messagePanel.innerHTML = '';
@@ -170,6 +214,11 @@ function renderMessages() {
         {
             if (usageString!="") usageString+=" ";
             usageString+=`Message tokens: ${message.messageTokens}.`
+        }
+        if (message.model!=undefined)
+        {
+            if (usageString!="") usageString+=" ";
+            usageString+=` Model: ${message.model}.`
         }
         if (usageString!="")
         {
@@ -298,6 +347,7 @@ async function callOpenAIStream(chatID,index,settings) {
         let aiRole="";
         chats[chatID].messages[index].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[index].message),settings.getAttribute("model"));
         const currentUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
+        let usedModel=null;
         let responseIndex=null;
         // Check if the response is okay and supports streaming
         if (response.ok && response.body) {
@@ -335,6 +385,7 @@ async function callOpenAIStream(chatID,index,settings) {
                             }
                         }
                         if (data.choices[0].delta==undefined || data.choices[0].delta.content==undefined) continue;
+                        if (usedModel==null) usedModel=data.model;
                         aiMessage += data.choices[0].delta.content;
                         if (aiRole=="") aiRole = data.choices[0].delta.role;
                     }
@@ -342,7 +393,7 @@ async function callOpenAIStream(chatID,index,settings) {
                 currentUsage.completion_tokens=getTokenNumber(aiMessage,settings.getAttribute("model"));
                 currentUsage.total_tokens=currentUsage.prompt_tokens+currentUsage.completion_tokens;
                 // console.log(aiMessage, currentUsage.completion_tokens);
-                if (responseIndex==null) responseIndex=addMessage(chatID, {message: {role:aiRole,content:aiMessage}, usage: currentUsage, messageTokens: currentUsage.completion_tokens});
+                if (responseIndex==null) responseIndex=addMessage(chatID, {message: {role:aiRole,content:aiMessage}, usage: currentUsage, messageTokens: currentUsage.completion_tokens, model:usedModel});
                 else
                 {
                     chats[chatID].messages[responseIndex].message.content=aiMessage;
@@ -389,9 +440,10 @@ function callOpenAI(chatID,index,settings) {
         console.log(data)
         const aiMessage = data.choices[0].message;
         const responseUsage=data.usage;
+        const usedModel=data.model;
         chats[chatID].messages[index].fulfilled=true;
         chats[chatID].messages[index].messageTokens=responseUsage.prompt_tokens-context.tokens;
-        addMessage(chatID,{message:aiMessage, usage:responseUsage, messageTokens:getTokenNumber(aiMessage,settings.getAttribute('model'))});
+        addMessage(chatID,{message:aiMessage, usage:responseUsage, messageTokens:getTokenNumber(JSON.stringify(aiMessage),settings.getAttribute('model')), model:usedModel});
     })
     .catch(error => {
         console.error('Error:', error);
@@ -399,11 +451,11 @@ function callOpenAI(chatID,index,settings) {
     });
 }
 
-// Add settings button
-const settingsButton = document.createElement('button');
-settingsButton.textContent = 'Settings';
-settingsButton.style.position = 'absolute';
-settingsButton.style.top = '10px';
-settingsButton.style.right = '10px';
-settingsButton.onclick = openSettings;
-document.body.appendChild(settingsButton);
+// // Add settings button
+// const settingsButton = document.createElement('button');
+// settingsButton.textContent = 'Settings';
+// settingsButton.style.position = 'absolute';
+// settingsButton.style.top = '10px';
+// settingsButton.style.right = '10px';
+// settingsButton.onclick = openSettings;
+// document.body.appendChild(settingsButton);

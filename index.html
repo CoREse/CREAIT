@@ -8,11 +8,23 @@
 <link href="./css/prism.css" rel="stylesheet" />
 </head>
 <body>
-<div id="chat-list">
-    <button onclick="newChat()">New Chat</button>
-    <!-- Chat list will be dynamically inserted here -->
+<div id="left-panel">
+    <div id="chat-list">
+        <button onclick="newChat()">New Chat</button>
+        <!-- Chat list will be dynamically inserted here -->
+    </div>
+    <div id="toolbar"><button onclick="openSettings()">Settings</button></div>
 </div>
 <div id="chat-window">
+    <div id="chat-header">
+        <div id="chat-title">OpenAI Chat</div>
+        <div class="quick-panel-item" title="model">
+            <select id="quick-model-select" onchange="quickChange(event)"></select></select>
+        </div>
+        <div class="quick-panel-item"  title="context number">
+            <input type="range" min="0" max="10" id="quick-context-number" onchange="quickChange(event)"/><button id="quick-reset-context-number" onclick="quickChange(event)">↻</button><label id="quick-context-number-label">0</label>
+        </div>
+    </div>
     <div id="message-panel">
         <!-- Messages will be dynamically inserted here -->
     </div>
