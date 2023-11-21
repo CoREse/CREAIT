@@ -13,11 +13,12 @@
         <button onclick="newChat()">New Chat</button>
         <!-- Chat list will be dynamically inserted here -->
     </div>
-    <div id="toolbar"><button onclick="openSettings()">Settings</button></div>
+    <div id="toolbar"><button onclick="openSettings()">Settings</button><button onclick="openAbout()">About</button></div>
 </div>
 <div id="chat-window">
     <div id="chat-header">
         <div id="chat-title">OpenAI Chat</div>
+        <div id="chat-settings" onclick="onChatSettings(event)" title="settings">🔧</div>
         <div class="quick-panel-item" title="model">
             <select id="quick-model-select" onchange="quickChange(event)"></select></select>
         </div>
@@ -44,6 +45,8 @@
     <p>Max context tokens (exclude current message): <input type="number" min="0" id="context-tokens"></p>
     <button onclick="saveSettings()">Save Settings</button>
     <button onclick="closeSettings()">Close</button>
+</div>
+<div id="about-dialog">
 </div>
 <script src="scripts/services.js"></script>
 <script src="scripts/tiktoken.js"></script>

@@ -1,3 +1,7 @@
+const about={
+    version:"v0.4.1",
+    author:"CRE"
+}
 let currentChatId = null;
 let chats = {};
 let modelList=[
@@ -47,6 +51,7 @@ function openSettings(event, settings=null) {
     document.getElementById('settings-dialog').style.display = 'block';
     if (settings==null)
     {
+        document.getElementsByTagName("h3")[0].innerHTML="Default Settings";
         document.getElementById('api-key').value = Settings.defaultSettings.apiKey;
         document.getElementById('model').value = Settings.defaultSettings.model;
         document.getElementById('api-url').value = Settings.defaultSettings.apiUrl;
@@ -55,6 +60,7 @@ function openSettings(event, settings=null) {
     }
     else
     {
+        document.getElementsByTagName("h3")[0].innerHTML="Settings for the Chat";
         document.getElementById('api-key').value = settings.getAttribute("apiKey");
         document.getElementById('model').value = settings.getAttribute("model");
         document.getElementById('api-url').value = settings.getAttribute("apiUrl");
@@ -88,6 +94,10 @@ function saveSettings(settings=null) {
 
 function closeSettings() {
     document.getElementById('settings-dialog').style.display = 'none';
+}
+
+function onChatSettings(event) {
+    openSettings(event, chats[currentChatId].settings);
 }
 
 function quickChange(event) {
@@ -133,8 +143,10 @@ function loadSettings() {
     }
 }
 
+//Chats part
 function loadChats() {
     const savedChats = localStorage.getItem('chats');
+    currentChatId=localStorage.getItem('currentChatId');
     if (savedChats) {
         chats = JSON.parse(savedChats);
     }
@@ -142,7 +154,7 @@ function loadChats() {
     {
         chats[chatID].settings=new Settings(chats[chatID].settings);
     }
-    if (Object.keys(chats).length!=0)
+    if (currentChatId==null && Object.keys(chats).length!=0)
     {
         currentChatId=Object.keys(chats)[0];
     }
@@ -150,13 +162,16 @@ function loadChats() {
 
 function renderChats() {
     const chatList = document.getElementById('chat-list');
-    chatList.innerHTML = '<button onclick="newChat()">New Chat</button>';
+    chatList.innerHTML = '<button id="new-chat" onclick="newChat()">New Chat</button>';
     Object.keys(chats).forEach(chatId => {
-        const button = document.createElement('button');
-        if (chatId==currentChatId) button.classList.add("current-chat");
-        button.textContent = `Chat ${chatId}`;
-        button.onclick = () => switchChat(chatId);
-        chatList.appendChild(button);
+        const chatdiv = document.createElement('div');
+        chatdiv.classList.add("chat-entry");
+        chatdiv.id="chat-"+chatId;
+        if (chatId==currentChatId) chatdiv.classList.add("current-chat");
+        chatdiv.dataset.ID=chatId;
+        chatdiv.textContent = chats[chatId].name;
+        chatdiv.onclick = () => switchChat(chatId);
+        chatList.appendChild(chatdiv);
     });
     if (currentChatId!=null)
     {
@@ -166,12 +181,103 @@ function renderChats() {
 
 function switchChat(chatId) {
     currentChatId = chatId;
+    localStorage.setItem('currentChatId', currentChatId);
     renderChats();
     renderMessages();
 }
 
+function newChat() {
+    const chatId = Date.now().toString();
+    chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[]};
+    saveChats();
+    switchChat(chatId);
+}
+
+function finishRename(event, chatDiv, input)
+{
+
+}
+function renameChat(event, chatID) {
+    console.log(chatID)
+    const chatDiv=document.getElementById("chat-"+chatID);
+    // Create a new input element
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = chatDiv.textContent; // Set the input value to the current text
+    input.classList.add('chat-input'); // Add any necessary classes
+
+    // Replace the textContent with the input element
+    chatDiv.textContent = '';
+    chatDiv.appendChild(input);
+    input.focus();
+    input.select();
+
+    // Event handler for when the input loses focus
+    input.addEventListener('blur', function() {
+        chats[chatDiv.dataset.ID].name = input.value;
+        saveChats();
+        renderChats();
+    });
+    input.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            chats[chatDiv.dataset.ID].name = input.value;
+            saveChats();
+            renderChats();
+        }
+    });
+}
+
+function editChat(event, chatID) {
+    openSettings(event,chats[chatID].settings);
+}
+
+function deleteChat(event, chatID) {
+    delete chats[chatID];
+    if (currentChatId==chatID) currentChatId=null;
+    saveChats()
+    renderChats();
+}
+
+function saveChats() {
+    localStorage.setItem('chats', JSON.stringify(chats));
+}
+
+let currentMenu=null;
+document.getElementById("chat-list").addEventListener('contextmenu', function(event) {
+    if (event.target.id=="new-chat") return;
+    event.preventDefault();
+  
+    if (currentMenu!=null)
+    {
+        currentMenu.remove();
+        currentMenu=null;
+    }
+    const chatID=event.target.dataset.ID;
+    var menu = document.createElement('div');
+    menu.innerHTML = `<div id="chat-menu"><button id="chat-rename" onclick="renameChat(event,${chatID})">Rename Chat</button><button id="chat-edit" onclick="editChat(event,${chatID})">Edit Chat</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">Delete Chat</button></div>`;;
+    menu.style.position = 'absolute';
+    menu.style.left = event.pageX + 'px';
+    menu.style.top = event.pageY + 'px';
+    menu.style.backgroundColor = 'white';
+    menu.style.border = '1px solid black';
+    menu.style.padding = '5px';
+  
+    document.body.appendChild(menu);
+    currentMenu=menu;
+  
+    document.addEventListener('click', function() {
+        if (currentMenu!=null)
+        {
+            currentMenu.remove();
+            currentMenu=null;
+        }
+    }, { once: true });
+});
+
+//Message part
 function renderHeader() {
-    document.getElementById('chat-title').value="Chat"+ currentChatId;
+    if (currentChatId==null) return;
+    document.getElementById('chat-title').innerText=chats[currentChatId].name;
     const quickModels=document.getElementById('quick-model-select');
     quickModels.innerHTML="";
     for (model of [undefined].concat(modelList))
@@ -186,7 +292,6 @@ function renderHeader() {
     quickContextNumber.value=chats[currentChatId].settings.contextNumber==undefined?Settings.defaultSettings.contextNumber:chats[currentChatId].settings.contextNumber;
     const quickContextNumberLabel=document.getElementById('quick-context-number-label');
     quickContextNumberLabel.innerHTML=quickContextNumber.value;
-    
 }
 
 function renderMessages() {
@@ -231,14 +336,6 @@ function renderMessages() {
     });
     messagePanel.scrollTop = messagePanel.scrollHeight;
     window.Prism.highlightAll();
-}
-
-function newChat() {
-    const chatId = Date.now().toString();
-    chats[chatId] = {settings: new Settings(), messages:[]};
-    currentChatId = chatId;
-    renderChats();
-    renderMessages();
 }
 
 function getTokenNumber(message,model) {
@@ -305,10 +402,6 @@ function addMessage(chatID, message, location=null) {
     return location;
 }
 
-function saveChats() {
-    localStorage.setItem('chats', JSON.stringify(chats));
-}
-
 function getContext(messages,index,settings) {
     let context=[];
     if (settings.getAttribute("contextNumber")!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.getAttribute("contextNumber"));
@@ -369,4 +462,15 @@ async function askService(service,chatID,index,settings) {
             break;
         }
     }
+}
+
+function openAbout(event) {
+    aboutDiv=document.getElementById('about-dialog');
+    aboutDiv.style.display = 'block';
+    aboutDiv.innerHTML=`<p>Version: ${about.version}</p><p>Author: ${about.author}</p><button onclick="closeAbout()">Close</button>`;
+}
+
+function closeAbout(event) {
+    aboutDiv=document.getElementById('about-dialog');
+    aboutDiv.style.display = 'none';
 }
