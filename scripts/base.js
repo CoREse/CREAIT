@@ -197,7 +197,7 @@ function renderMessages() {
     messages.forEach(message => {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
-        messageDiv.classList.add(message.message.role);
+        if (message.message.role != "") messageDiv.classList.add(message.message.role);
         // messageDiv.innerHTML=message.message.content;
         // messageDiv.innerHTML = window.Prism.highlightElement(marked.parse(message.message.content));//won't work since not every element contains a code tag
         messageDiv.innerHTML = marked.parse(DOMPurify.sanitize(message.message.content));
@@ -276,16 +276,24 @@ function convertNewlinesToMarkdown(text) {
     return parts.join('');
 }
 
+function getService(name="OpenAI Chat Stream")
+{
+    return ServiceTable[name];
+    // return window.services.ServiceTable[name];
+}
+
 function sendMessage(event) {
     if (event) event.preventDefault();
     const input = document.getElementById('message-text');
     const message = convertNewlinesToMarkdown(input.value.trim());
     if (message === '') return;
-    packedMessage = {message:{role: "user", content:message}, fulfilled: false}
+    packedMessage = {message:{role: "user", content:message}, fulfilled: false};
     const chatID=currentChatId;
+    packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),chats[chatID].settings.getAttribute("model"));
     addMessage(chatID, packedMessage);
     input.value = '';
-    callOpenAIStream(chatID,chats[chatID].messages.length-1,chats[chatID].settings);
+    console.log(ServiceTable);
+    askService(getService("OpenAI Chat Stream"),chatID,chats[chatID].messages.length-1,chats[chatID].settings);
 }
 
 function addMessage(chatID, message, location=null) {
@@ -324,138 +332,41 @@ function getContext(messages,index,settings) {
     return {messages:contextMessage,tokens:messageTokens};
 }
 
-async function callOpenAIStream(chatID,index,settings) {
+async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
-    console.log(context);
-    const headers = new Headers({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.getAttribute("apiKey")}`
-    });
-    const data = {
-        model: settings.getAttribute("model"),
-        messages: context.messages,
-        stream: true
-    };
-    try {
-        const response = await fetch(settings.getAttribute('apiUrl')+'/v1/chat/completions', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-        });
-
-        let aiMessage="";
-        let aiRole="";
-        chats[chatID].messages[index].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[index].message),settings.getAttribute("model"));
-        const currentUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
-        let usedModel=null;
-        let responseIndex=null;
-        // Check if the response is okay and supports streaming
-        if (response.ok && response.body) {
-            const reader = response.body.getReader();
-            let finishReason = null;
-
-            // Keep reading the stream until finish_reason is not null
-            while (finishReason === null) {
-                const { value, done } = await reader.read();
-                // Convert the stream from Uint8Array to a string
-                const chunk = new TextDecoder().decode(value);
-
-                for (c of chunk.split("\n")){
-                    if (c!="")
-                    {
-                        let data;
-                        try
-                        {
-                            data=JSON.parse(c.slice(5));
-                        }
-                        catch(error)
-                        {
-                            continue;
-                        }
-                        // Check if finish_reason is present and not null
-                        if (data.choices!=null && data.choices!=undefined && data.choices.length>0 && data.choices[0].finish_reason != null) {
-                            finishReason = data.choices[0].finish_reason;
-                            if (finishReason != "stop")
-                            {
-                                addMessage(chatID, { message: { role: "error", content: `OpenAI: finished with reason ${data.choices[0].finish_reason}.` } });
-                            }
-                            else
-                            {
-                                chats[chatID].messages[index].fulfilled = true;
-                            }
-                        }
-                        if (data.choices[0].delta==undefined || data.choices[0].delta.content==undefined) continue;
-                        if (usedModel==null) usedModel=data.model;
-                        aiMessage += data.choices[0].delta.content;
-                        if (aiRole=="") aiRole = data.choices[0].delta.role;
-                    }
-                }
-                currentUsage.completion_tokens=getTokenNumber(aiMessage,settings.getAttribute("model"));
-                currentUsage.total_tokens=currentUsage.prompt_tokens+currentUsage.completion_tokens;
-                // console.log(aiMessage, currentUsage.completion_tokens);
-                if (responseIndex==null) responseIndex=addMessage(chatID, {message: {role:aiRole,content:aiMessage}, usage: currentUsage, messageTokens: currentUsage.completion_tokens, model:usedModel});
-                else
-                {
-                    chats[chatID].messages[responseIndex].message.content=aiMessage;
-                    chats[chatID].messages[responseIndex].usage=currentUsage;
-                    chats[chatID].messages[responseIndex].messageTokens=currentUsage.completion_tokens;
-                    // console.log(chats[chatID][responseIndex]);
-                }
-                saveChats();
-                if (chatID==currentChatId) renderMessages();
-                if (finishReason!=null) break;
-                if (done) {
-                    break;
-                }
-            }
-            // console.log('Stream ended with finish reason:', finishReason);
-        } else {
-            console.error('Network response was not ok.');
-            addMessage(chatID, { message: { role: "error", content: `OpenAI: Error communicating with the API.` } });
+    let responseIndex=null;
+    const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
+    for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), "/v1/chat/completions"))
+    {
+        if (response.status=="error") {
+            addMessage(chatID, { message: response.data.message });
+            saveChats();
+            if (currentChatId==chatID) renderMessages();
+            break;
         }
-    } catch (error) {
-        console.error('Fetch error:', error);
-        addMessage(chatID, { message: { role: "error", content: `OpenAI: Error communicating with the API. Error: ${error}` } });
+        if (responseIndex==null)
+        {
+            responseIndex=addMessage(chatID, response.data);
+            if (response.data.message.role=="") continue;
+            if (response.data.usage==undefined)
+            {
+                chats[chatID].messages[responseIndex].usage=initialUsage;
+            }
+            chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
+        }
+        else chats[chatID].messages[responseIndex]=response.data;
+        if (response.data.usage==undefined)
+        {
+            chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(aiMessage),settings.getAttribute("model"));
+            chats[chatID].messages[responseIndex].usage.total_tokens=initialUsage.prompt_tokens+chats[chatID].messages[responseIndex].usage.completion_tokens;
+        }
+        chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
+        saveChats();
+        if (currentChatId==chatID) renderMessages();
+        if (response.status=="completed") {
+            chats[chatID].messages[index].fulfilled = true;
+            saveChats();
+            break;
+        }
     }
 }
-
-function callOpenAI(chatID,index,settings) {
-    const context=getContext(chats[chatID].messages,index,settings);
-    console.log(context)
-    const data = {
-        model: settings.getAttribute("model"),
-        messages: context.messages
-    };
-
-    fetch(settings.getAttribute('apiUrl')+'/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.getAttribute("apiKey")}`
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log(data)
-        const aiMessage = data.choices[0].message;
-        const responseUsage=data.usage;
-        const usedModel=data.model;
-        chats[chatID].messages[index].fulfilled=true;
-        chats[chatID].messages[index].messageTokens=responseUsage.prompt_tokens-context.tokens;
-        addMessage(chatID,{message:aiMessage, usage:responseUsage, messageTokens:getTokenNumber(JSON.stringify(aiMessage),settings.getAttribute('model')), model:usedModel});
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        addMessage(chatID,{message:{role:"error", content:'OpenAI: Error communicating with the API.'}});
-    });
-}
-
-// // Add settings button
-// const settingsButton = document.createElement('button');
-// settingsButton.textContent = 'Settings';
-// settingsButton.style.position = 'absolute';
-// settingsButton.style.top = '10px';
-// settingsButton.style.right = '10px';
-// settingsButton.onclick = openSettings;
-// document.body.appendChild(settingsButton);
