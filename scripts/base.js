@@ -1,9 +1,10 @@
 const about={
-    version:"v0.4.1",
+    version:"v0.4.2",
     author:"CRE"
 }
 let currentChatId = null;
 let chats = {};
+let chatOrder=[];
 let modelList=[
     'gpt-3.5-turbo-1106',
     'gpt-4-1106-preview'
@@ -146,6 +147,12 @@ function loadSettings() {
 //Chats part
 function loadChats() {
     const savedChats = localStorage.getItem('chats');
+    chatOrder = localStorage.getItem('chatOrder');
+    if (chatOrder)
+    {
+        chatOrder=JSON.parse(chatOrder);
+    }
+    if (chatOrder==null) chatOrder=[];
     currentChatId=localStorage.getItem('currentChatId');
     if (savedChats) {
         chats = JSON.parse(savedChats);
@@ -160,19 +167,105 @@ function loadChats() {
     }
 }
 
+function togglePin(chatId) {
+    if (chats[chatId].pinned===true)
+    {
+        chats[chatId].pinned=false;
+    }
+    else
+    {
+        chats[chatId].pinned=true;
+    }
+    reorderChats();
+    saveChats();
+}
+
+function reorderChats () {
+    // chatOrder.sort((a, b) => chats[a].pinned===true?-1:1);
+    chatOrder.sort((a, b) => 
+    {
+        if ((chats[a].pinned===true && chats[b].pinned==true) || (chats[a].pinned!==true && chats[b].pinned!==true))
+        {
+            return chatOrder.indexOf(a)-chatOrder.indexOf(b);
+        }
+        return chats[a].pinned===true?-1:1;
+    });
+    localStorage.setItem("chatOrder",JSON.stringify(chatOrder));
+    renderChats();
+}
+
+let draggedItem = null;
 function renderChats() {
     const chatList = document.getElementById('chat-list');
     chatList.innerHTML = '<button id="new-chat" onclick="newChat()">New Chat</button>';
-    Object.keys(chats).forEach(chatId => {
+    for (let i=0;i<chatOrder.length;++i) {
+        const chatId = chatOrder[i];
         const chatdiv = document.createElement('div');
         chatdiv.classList.add("chat-entry");
         chatdiv.id="chat-"+chatId;
         if (chatId==currentChatId) chatdiv.classList.add("current-chat");
         chatdiv.dataset.ID=chatId;
-        chatdiv.textContent = chats[chatId].name;
+        const tb = document.createElement('i');
+        tb.classList.add("fa");
+        tb.classList.add("fa-thumb-tack");
+        if (chats[chatId].pinned===true) {
+            tb.classList.add("unpin");
+        }
+        else tb.classList.add("pin")
+        tb.onclick = () => togglePin(chatId);
+        chatdiv.appendChild(tb);
+        const cn=document.createElement('span');
+        cn.classList.add("chat-name");
+        cn.textContent = chats[chatId].name;
+        // chatdiv.innerHTML = `<i class="pin fa fa-thumb-tack"></i>${chats[chatId].name}`;
         chatdiv.onclick = () => switchChat(chatId);
+        chatdiv.appendChild(cn);
+
+        //drag
+        chatdiv.setAttribute('draggable', true);
+
+        chatdiv.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.id);
+            this.classList.add('dragging');
+        });
+
+        chatdiv.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('over');
+        });
+
+        chatdiv.addEventListener('dragleave', function(e) {
+            this.classList.remove('over');
+        });
+
+        chatdiv.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('over');
+            if (this !== draggedItem) {
+                let fromIndex = chatOrder.indexOf(draggedItem.dataset.ID);
+                let toIndex = chatOrder.indexOf(this.dataset.ID);
+                if (fromIndex < toIndex) {
+                    this.parentNode.insertBefore(draggedItem, this.nextSibling);
+                } else {
+                    this.parentNode.insertBefore(draggedItem, this);
+                }
+                // Update the chatOrder array to reflect the new order
+                chatOrder.splice(toIndex, 0, chatOrder.splice(fromIndex, 1)[0]);
+                reorderChats();
+            }
+        });
+
+        chatdiv.addEventListener('dragend', function(e) {
+            this.classList.remove('dragging');
+            draggedItem = null;
+        });
+        //drag end
+
         chatList.appendChild(chatdiv);
-    });
+    }
     if (currentChatId!=null)
     {
         renderMessages();
@@ -189,21 +282,18 @@ function switchChat(chatId) {
 function newChat() {
     const chatId = Date.now().toString();
     chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[]};
+    chatOrder.push(chatId);
     saveChats();
     switchChat(chatId);
 }
 
-function finishRename(event, chatDiv, input)
-{
-
-}
 function renameChat(event, chatID) {
     console.log(chatID)
     const chatDiv=document.getElementById("chat-"+chatID);
     // Create a new input element
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = chatDiv.textContent; // Set the input value to the current text
+    input.value = chatDiv.getElementsByTagName("span").textContent; // Set the input value to the current text
     input.classList.add('chat-input'); // Add any necessary classes
 
     // Replace the textContent with the input element
@@ -233,6 +323,7 @@ function editChat(event, chatID) {
 
 function deleteChat(event, chatID) {
     delete chats[chatID];
+    chatOrder=chatOrder.filter(item => item !== chatID);//not frequently called, the efficiency is not that important
     if (currentChatId==chatID) currentChatId=null;
     saveChats()
     renderChats();
@@ -240,6 +331,7 @@ function deleteChat(event, chatID) {
 
 function saveChats() {
     localStorage.setItem('chats', JSON.stringify(chats));
+    localStorage.setItem('chatOrder', JSON.stringify(chatOrder));
 }
 
 let currentMenu=null;

@@ -279,3 +279,28 @@ code {
 #chat-settings:hover {
     background-color: #fff;
 }
+
+.dragging {
+    opacity: 0.5;
+}
+
+.over {
+    border-top: 2px dashed #000;
+    border-bottom: 2px dashed #000;
+}
+
+.pin,.unpin {
+    padding: 10px;
+    margin-top: -10px;
+    margin-bottom: -10px;
+    margin-left: -10px;
+    transition: background-color 0.3s;
+}
+
+.pin:hover,.unpin:hover {
+    background-color: #fff;
+}
+
+.unpin {
+    color:red;
+}
