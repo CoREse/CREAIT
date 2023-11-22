@@ -38,13 +38,13 @@
     </form>
 </div>
 <div id="settings-dialog">
-    <h3>Default settings:</h3>
+    <h3 id="settings-title">Default settings:</h3>
     <p>API URL: <input type="text" id="api-url"></p>
     <p>API key: <input type="text" id="api-key"></p>
-    <p>Model: <input type="text" id="model"></p>
+    <p>Model: <select id="model" onchange="settingsChange(event)"></select></p>
+    <p id="other-model-p">Other model: <input type="text" id="other-model"></p>
     <p>Max context number (exclude current message): <input type="number" min="0" id="context-number"></p>
     <p>Max context tokens (exclude current message): <input type="number" min="0" id="context-tokens"></p>
-    <button onclick="saveSettings()">Save Settings</button>
     <button onclick="closeSettings()">Close</button>
 </div>
 <div id="about-dialog">

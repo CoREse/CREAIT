@@ -113,8 +113,12 @@ body {
     border-radius: 5px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
+#other-model {
+    display: none;
+}
 #settings-dialog input,
-#settings-dialog button {
+#settings-dialog button,
+#settings-dialog select {
     display: block;
     width: 100%;
     box-sizing: border-box;

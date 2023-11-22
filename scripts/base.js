@@ -1,14 +1,10 @@
 const about={
-    version:"v0.4.2",
+    version:"v0.4.3",
     author:"CRE"
 }
 let currentChatId = null;
 let chats = {};
 let chatOrder=[];
-let modelList=[
-    'gpt-3.5-turbo-1106',
-    'gpt-4-1106-preview'
-]
 
 class Settings
 {
@@ -35,8 +31,23 @@ class Settings
             stream: true
         }
     };
-    getAttribute(Attr) {
-        return this[Attr]==undefined?Settings.defaultSettings[Attr]:this[Attr];
+    isDefault() {
+        return false;
+    }
+    getAttribute(Attr, raw=false) {
+        if (raw) return this[Attr];
+        if (Attr=="otherModel") return this["otherModel"]==undefined?"":this["otherModel"];
+        if (Attr=="model" && this[Attr]=="[Other]") return this.getAttribute("otherModel");
+        return this[Attr]==undefined?Settings.getAttribute(Attr):this[Attr];
+    }
+    setAttribute(Attr,value) {
+        return this[Attr]=value;
+    }
+    getModelSettings() {
+        const model=this.getAttribute("model");
+        if (model in Settings.settingAlternates.modelSet)
+            return Settings.settingAlternates.modelSet[model];
+        else return Settings.defaultModelSettings;
     }
     static defaultSettingsInitial={
         apiKey: '',
@@ -45,52 +56,143 @@ class Settings
         contextNumber:5,
         contextTokens:8192
     };
+    static isDefault() {
+        return true;
+    }
+    static getAttribute(Attr,raw=false) {
+        if (raw) return Settings.defaultSettings[Attr];
+        if (Attr=="otherModel") return Settings.defaultSettings["otherModel"]==undefined?"":Settings.defaultSettings["otherModel"];
+        if (Attr=="model" && Settings.defaultSettings[Attr]=="[Other]") return Settings.getAttribute("otherModel");
+        return Settings.defaultSettings[Attr];
+    }
+    static setAttribute(Attr,value) {
+        Settings.defaultSettings[Attr]=value;
+    }
     static defaultSettings={...Settings.defaultSettingsInitial};
+    static settingAlternates={
+        apiUrlList:[
+            "https://api.openai.com",
+        ],
+        defaultModelSettings:{service: "OpenAI Chat Stream", apiUrl:undefined, apiEndpoint:"/v1/chat/completions"},
+        //current not designed to be modded by users.
+        modelSet:{
+            'gpt-3.5-turbo-1106':{service: "OpenAI Chat Stream", apiUrl:undefined, apiEndpoint:"/v1/chat/completions"},
+            'gpt-4-1106-preview':{service: "OpenAI Chat Stream", apiUrl:undefined, apiEndpoint:"/v1/chat/completions"},
+        }
+    }
 };
 
-function openSettings(event, settings=null) {
-    document.getElementById('settings-dialog').style.display = 'block';
-    if (settings==null)
+function onSettingChange(event, settings)
+{
+    switch(event.target.id)
     {
-        document.getElementsByTagName("h3")[0].innerHTML="Default Settings";
-        document.getElementById('api-key').value = Settings.defaultSettings.apiKey;
-        document.getElementById('model').value = Settings.defaultSettings.model;
-        document.getElementById('api-url').value = Settings.defaultSettings.apiUrl;
-        document.getElementById('context-number').value = Settings.defaultSettings.contextNumber;
-        document.getElementById('context-tokens').value = Settings.defaultSettings.contextTokens;
-    }
-    else
-    {
-        document.getElementsByTagName("h3")[0].innerHTML="Settings for the Chat";
-        document.getElementById('api-key').value = settings.getAttribute("apiKey");
-        document.getElementById('model').value = settings.getAttribute("model");
-        document.getElementById('api-url').value = settings.getAttribute("apiUrl");
-        document.getElementById('context-number').value = settings.getAttribute("contextNumber");
-        document.getElementById('context-tokens').value = settings.getAttribute("contextTokens");
+        case "api-key":
+            settings.setAttribute("apiKey",event.target.value==""?(settings.isDefault()?"":undefined):event.target.value);
+            saveSettings();
+            saveChats();
+            break;
+        case "model":
+            settings.setAttribute("model",event.target.value);
+            if (event.target.value=='undefined') settings.setAttribute("model",undefined);
+            saveSettings();
+            saveChats();
+            if (event.target.value=="[Other]") document.getElementById('other-model-p').style.display="block";
+            else document.getElementById('other-model-p').style.display="none";
+            break;
+        case "other-model":
+            settings.setAttribute("otherModel",event.target.value);
+            saveSettings();
+            saveChats();
+            break;
+        case "api-url":
+            settings.setAttribute("apiUrl",event.target.value==""?(settings.isDefault()?"":undefined):event.target.value);
+            saveSettings();
+            saveChats();
+            break;
+        case "context-number":
+            settings.setAttribute("contextNumber",event.target.value);
+            saveSettings();
+            saveChats();
+            break;
+        case "context-tokens":
+            settings.setAttribute("contextTokens",event.target.value);
+            saveSettings();
+            saveChats();
+            break;
     }
 }
 
-function saveSettings(settings=null) {
+function openSettings(event, settings=null) {
+    document.getElementById('settings-dialog').style.display = 'block';
+    let modelList=Object.keys(Settings.settingAlternates.modelSet).concat('[Other]');
     if (settings==null)
     {
-        Settings.defaultSettings.apiKey = document.getElementById('api-key').value.trim();
-        Settings.defaultSettings.model = document.getElementById('model').value.trim();
-        Settings.defaultSettings.apiUrl = document.getElementById('api-url').value.trim();
-        Settings.defaultSettings.contextNumber=document.getElementById('context-number').value.trim();
-        Settings.defaultSettings.contextTokens=document.getElementById('context-tokens').value.trim();
-        localStorage.setItem('defaultSettings', JSON.stringify(Settings.defaultSettings));
+        settings=Settings;
+        document.getElementById("settings-title").innerHTML="Default Settings";
     }
     else
     {
-        for (key of ['api-key', "model", "api-url", "context-number", "context-tokens"])
-        {
-            const value=document.getElementById(key).value.trim();
-            if (value.slice(0, 10)=="*default*") settings[key]=undefined;
-            else settings[key]=value;
-        }
-        saveChats();
+        document.getElementById("settings-title").innerHTML="Settings for the Chat";
+        modelList=[undefined].concat(modelList);
     }
-    closeSettings();
+    const apiKeyDiv=document.getElementById('api-key')
+    apiKeyDiv.value = settings.getAttribute("apiKey");
+    apiKeyDiv.onchange= function(event) {
+        onSettingChange(event, settings);
+    };
+    // document.getElementById('model').value = settings.getAttribute("model");
+    const modelDiv=document.getElementById('model')
+    modelDiv.innerHTML="";
+    modelDiv.onchange=function(event) {
+        onSettingChange(event, settings);
+    };
+    for (model of modelList)
+    {
+        const option=document.createElement("option");
+        option.value=model;
+        option.innerHTML=model==undefined?"*default*"+Settings.getAttribute("model"):model;
+        if (model==settings.getAttribute("model",true))
+        {
+            option.selected=true;
+        }
+        modelDiv.appendChild(option);
+    }
+    if (settings.getAttribute("model", true)=="[Other]")
+    {
+        document.getElementById('other-model-p').style.display="block";
+        const otherModelDiv=document.getElementById('other-model')
+        otherModelDiv.value=settings.getAttribute("otherModel");
+        otherModelDiv.onchange=function(event) {
+            onSettingChange(event, settings);
+        };
+    }
+    else document.getElementById('other-model-p').style.display="none";
+    const apiUrlDiv=document.getElementById('api-url');
+    apiUrlDiv.value = settings.getAttribute("apiUrl");
+    apiUrlDiv.onchange=function(event) {
+        onSettingChange(event, settings);
+    };
+    const contextNumberDiv=document.getElementById('context-number');
+    contextNumberDiv.value = settings.getAttribute("contextNumber");
+    contextNumberDiv.onchange=function(event) {
+        onSettingChange(event, settings);
+    };
+    const contextTokensDiv=document.getElementById('context-tokens');
+    contextTokensDiv.value = settings.getAttribute("contextTokens");
+    contextTokensDiv.onchange=function(event) {
+        onSettingChange(event, settings);
+    };
+}
+
+function saveSettings() {
+    localStorage.setItem('defaultSettings', JSON.stringify(Settings.defaultSettings));
+    // for (key of ['api-key', "model", "api-url", "context-number", "context-tokens"])
+    // {
+    //     const value=document.getElementById(key).value.trim();
+    //     if (value.slice(0, 10)=="*default*") settings[key]=undefined;
+    //     else settings[key]=value;
+    // }
+    saveChats();
 }
 
 function closeSettings() {
@@ -323,7 +425,7 @@ function editChat(event, chatID) {
 
 function deleteChat(event, chatID) {
     delete chats[chatID];
-    chatOrder=chatOrder.filter(item => item !== chatID);//not frequently called, the efficiency is not that important
+    chatOrder=chatOrder.filter(item => item != chatID);//not frequently called, the efficiency is not that important
     if (currentChatId==chatID) currentChatId=null;
     saveChats()
     renderChats();
@@ -372,11 +474,11 @@ function renderHeader() {
     document.getElementById('chat-title').innerText=chats[currentChatId].name;
     const quickModels=document.getElementById('quick-model-select');
     quickModels.innerHTML="";
-    for (model of [undefined].concat(modelList))
+    for (model of [undefined].concat(Object.keys(Settings.settingAlternates.modelSet)))
     {
         const option=document.createElement("option");
         option.value=model;
-        option.innerHTML=model==undefined?"*default*"+Settings.defaultSettings.model:model;
+        option.innerHTML=model==undefined?"*default*"+Settings.getAttribute("model"):model;
         if (model==chats[currentChatId].settings.model) option.selected=true;
         quickModels.appendChild(option);
     }
@@ -471,18 +573,19 @@ function getService(name="OpenAI Chat Stream")
     // return window.services.ServiceTable[name];
 }
 
-function sendMessage(event) {
+function sendMessage(event,settings=null) {
     if (event) event.preventDefault();
+    if (settings==null) settings=chats[currentChatId].settings;
     const input = document.getElementById('message-text');
     const message = convertNewlinesToMarkdown(input.value.trim());
     if (message === '') return;
     packedMessage = {message:{role: "user", content:message}, fulfilled: false};
     const chatID=currentChatId;
-    packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),chats[chatID].settings.getAttribute("model"));
+    packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),settings.getAttribute("model"));
     addMessage(chatID, packedMessage);
     input.value = '';
-    console.log(ServiceTable);
-    askService(getService("OpenAI Chat Stream"),chatID,chats[chatID].messages.length-1,chats[chatID].settings);
+    // console.log(ServiceTable);
+    askService(getService(settings.getModelSettings().service),chatID,chats[chatID].messages.length-1,chats[chatID].settings);
 }
 
 function addMessage(chatID, message, location=null) {
@@ -521,7 +624,7 @@ async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
     let responseIndex=null;
     const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
-    for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), "/v1/chat/completions"))
+    for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint))
     {
         if (response.status=="error") {
             addMessage(chatID, { message: response.data.message });
