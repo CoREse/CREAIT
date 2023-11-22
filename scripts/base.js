@@ -1,11 +1,7 @@
 const about={
-    version:"v0.5.0",
+    version:"v0.5.1",
     author:"CRE"
 }
-let currentChatId = null;
-let chats = {};
-let chatOrder=[];
-
 class Settings
 {
     constructor(copy=null){
@@ -81,6 +77,16 @@ class Settings
         }
     }
 };
+
+let currentChatId = null;
+let chats = {
+    0:{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
+    1:{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
+    2:{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
+    3:{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
+    4:{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
+};
+let chatOrder=[0,1,2,3,4];
 
 function onSettingChange(event, settings)
 {
@@ -225,6 +231,7 @@ function quickChange(event) {
             quickContextNumberLabel.innerHTML=document.getElementById('quick-context-number').value;
             break;
     }
+    renderHeader();
 }
 
 // Load settings and chats from local storage
@@ -249,10 +256,10 @@ function loadSettings() {
 //Chats part
 function loadChats() {
     const savedChats = localStorage.getItem('chats');
-    chatOrder = localStorage.getItem('chatOrder');
-    if (chatOrder)
+    const savedChatOrder = localStorage.getItem('chatOrder');
+    if (savedChatOrder)
     {
-        chatOrder=JSON.parse(chatOrder);
+        chatOrder=JSON.parse(savedChatOrder);
     }
     if (chatOrder==null) chatOrder=[];
     currentChatId=localStorage.getItem('currentChatId');
@@ -319,6 +326,7 @@ function renderChats() {
         const cn=document.createElement('span');
         cn.classList.add("chat-name");
         cn.textContent = chats[chatId].name;
+        cn.setAttribute("title",cn.textContent);
         // chatdiv.innerHTML = `<i class="pin fa fa-thumb-tack"></i>${chats[chatId].name}`;
         chatdiv.onclick = () => switchChat(chatId);
         chatdiv.appendChild(cn);
@@ -518,6 +526,7 @@ function stopOrReGenerate(event)
     else {
         const chatID=event.target.dataset.chatid;
         const messageIndex=event.target.dataset.index;
+        document.getElementById("message-input-send").setAttribute("disabled",true);
         generatingChatID=chatID;
         generatingMessageIndex=messageIndex;
         renderMessages();
@@ -546,10 +555,11 @@ function renderMessages() {
         entryDiv.classList.add('entry')
         const messageHead=document.createElement('div');
         messageHead.classList.add('message-head');
+        const roleName=message.message.role=="system"?"Character Settings":message.message.role;
         if (message.message.role=="user")
-            messageHead.innerHTML=`${message.message.role}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="stopOrReGenerate(event)">${(currentChatId==generatingChatID && messages.indexOf(message)==generatingMessageIndex?"⏹️":"🔃")}</button></div>`;
+            messageHead.innerHTML=`${roleName}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="stopOrReGenerate(event)">${(currentChatId==generatingChatID && messages.indexOf(message)==generatingMessageIndex?"⏹️":"🔃")}</button></div>`;
         else
-            messageHead.innerHTML=`${message.message.role}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button></div>`;
+            messageHead.innerHTML=`${roleName}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button></div>`;
         entryDiv.appendChild(messageHead);
         entryDiv.appendChild(messageDiv)
         let usageString=""
@@ -679,31 +689,34 @@ function getContext(messages,index,settings) {
 
 async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
-    console.log(context)
+    // console.log(context)
     let responseIndex=null;
     const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
     for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint))
     {
         if (response.status=="error") {
             addMessage(chatID, { message: response.data.message });
+            console.log("[error]", response)
             saveChats();
             if (currentChatId==chatID) renderMessages();
             break;
         }
+        let noUsage=false;
         if (responseIndex==null)
         {
             responseIndex=addMessage(chatID, response.data);
             if (response.data.message.role=="") continue;
             if (response.data.usage==undefined)
             {
+                noUsage=true;
                 chats[chatID].messages[responseIndex].usage=initialUsage;
             }
             chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
         }
         else chats[chatID].messages[responseIndex]=response.data;
-        if (response.data.usage==undefined)
+        if (response.data.usage==undefined || noUsage)
         {
-            chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(aiMessage),settings.getAttribute("model"));
+            chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
             chats[chatID].messages[responseIndex].usage.total_tokens=initialUsage.prompt_tokens+chats[chatID].messages[responseIndex].usage.completion_tokens;
         }
         chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));

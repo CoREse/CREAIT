@@ -3,6 +3,13 @@ const ServiceTable={
     "OpenAI Chat": chatOpenAI
 }
 
+// Helper function to create a timeout promise
+function createTimeoutPromise(duration) {
+    return new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Operation timed out')), duration);
+    });
+};
+
 //response format: {status: "update/completed/error0", data: Object}
 //data ={message:{role: "error/${returned by service}", content: "error message/${returned by service}"}[, usage: Object if returned by service][, model: string if returned by service]}
 async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://api.openai.com", endpoint='/v1/chat/completions') {
@@ -16,11 +23,14 @@ async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://ap
         stream: true
     };
     try {
-        const response = await fetch(accessUrl+endpoint, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-        });
+        const response = await Promise.race([
+            fetch(accessUrl+endpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(data)
+                }),
+            createTimeoutPromise(30000)
+        ]);
 
         let aiMessage="";
         let aiRole="";
@@ -33,7 +43,10 @@ async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://ap
 
             // Keep reading the stream until finish_reason is not null
             while (finishReason === null) {
-                const { value, done } = await reader.read();
+                const { value, done } = await Promise.race([
+                    reader.read(),
+                    createTimeoutPromise(10000)
+                ]);
                 // Convert the stream from Uint8Array to a string
                 const chunk = new TextDecoder().decode(value);
 
@@ -75,12 +88,16 @@ async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://ap
             else yield {status:"error", data: { message: { role: "error", content: `OpenAI: stopped with reason ${finishReason}.` } }};
             // console.log('Stream ended with finish reason:', finishReason);
         } else {
-            console.error('Network response was not ok.');
+            console.log('Network response was not ok.');
             yield {status:"error", data:  {message: { role: "error", content: `OpenAI: Error communicating with the API.` }} };
         }
     } catch (error) {
-        console.error('Fetch error:', error);
-        yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Error communicating with the API. Error: ${error}` }}};
+        if (error.message === 'Operation timed out') {
+            console.error('Timeout error:', error);
+            yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Operation timed out after 10 seconds.` }}};
+        } else {
+            yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Error communicating with the API. Error: ${error}` }}};
+        }
     }
 }
 
@@ -90,24 +107,35 @@ async function * chatOpenAI(apiKey, model, messages, accessUrl="https://api.open
         messages: messages
     };
 
-    const response= await fetch(accessUrl+endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(data)
-    });
-    const rdata=await response.json();
     try
     {
+        const response= await Promise.race([
+            fetch(accessUrl+endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(data)
+            }),
+            createTimeoutPromise(10000)
+        ]) ;
+        const rdata=await Promise.race([
+            response.json(),
+            createTimeoutPromise(10000)
+        ]) 
         const aiMessage = rdata.choices[0].message;
         const responseUsage=rdata.usage;
         const usedModel=rdata.model;
         yield {status: "completed", data: {message:aiMessage, usage:responseUsage, model:usedModel}};
     }
     catch(error) {
-        console.error('Error:', error);
-        yield {status: "completed", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
+        if (error.message === 'Operation timed out') {
+            console.error('Timeout error:', error);
+            yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Operation timed out after 10 seconds.` }}};
+        } else {
+            console.error('Error:', error);
+            yield {status: "completed", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
+        }
     }
 }

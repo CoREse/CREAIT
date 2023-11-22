@@ -19,6 +19,9 @@ body {
     text-align: left;
     outline: none;
     transition: background-color 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 #chat-list #new-chat:hover,.chat-entry:hover {
     background-color: #f0f0f0;
