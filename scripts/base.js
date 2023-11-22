@@ -1,5 +1,5 @@
 const about={
-    version:"v0.4.3",
+    version:"v0.5.0",
     author:"CRE"
 }
 let currentChatId = null;
@@ -383,7 +383,7 @@ function switchChat(chatId) {
 
 function newChat() {
     const chatId = Date.now().toString();
-    chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[]};
+    chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[{message:{role: "system", content: ""}}]};
     chatOrder.push(chatId);
     saveChats();
     switchChat(chatId);
@@ -488,6 +488,46 @@ function renderHeader() {
     quickContextNumberLabel.innerHTML=quickContextNumber.value;
 }
 
+function messageChange(event) {
+    const chatID=event.target.dataset.chatid;
+    const messageIndex=event.target.dataset.index;
+    const message=chats[chatID].messages[messageIndex];
+    message.message.content=event.target.value;
+    saveChats();
+    renderMessages();
+}
+
+function changeMessage(event)
+{
+    const chatID=event.target.dataset.chatid;
+    const messageIndex=event.target.dataset.index;
+    const message=chats[chatID].messages[messageIndex];
+    const messageDiv=document.getElementById("message-"+chatID+"-"+messageIndex);
+    messageDiv.innerHTML=`<textarea onblur="messageChange(event)" class="message-edit" data-chatID="${chatID}" data-index="${messageIndex}">${message.message.content}</textarea>`;
+}
+
+function stopOrReGenerate(event)
+{
+    if (generatingMessageIndex!=null)
+    {
+        stopGenerating=true;
+        generatingChatID=null;
+        generatingMessageIndex=null;
+        renderMessages();
+    }
+    else {
+        const chatID=event.target.dataset.chatid;
+        const messageIndex=event.target.dataset.index;
+        generatingChatID=chatID;
+        generatingMessageIndex=messageIndex;
+        renderMessages();
+        askService(getService(chats[chatID].settings.getModelSettings().service),chatID,messageIndex,chats[chatID].settings);
+    }
+}
+
+let generatingChatID=null;
+let generatingMessageIndex=null;
+let stopGenerating=false;
 function renderMessages() {
     renderHeader();
     const messages=chats[currentChatId].messages;
@@ -500,9 +540,17 @@ function renderMessages() {
         // messageDiv.innerHTML=message.message.content;
         // messageDiv.innerHTML = window.Prism.highlightElement(marked.parse(message.message.content));//won't work since not every element contains a code tag
         messageDiv.innerHTML = marked.parse(DOMPurify.sanitize(message.message.content));
+        const messageIndex=messages.indexOf(message);
+        messageDiv.setAttribute("id","message-"+currentChatId+"-"+messageIndex);
         const entryDiv=document.createElement('div');
         entryDiv.classList.add('entry')
-        entryDiv.innerHTML=message.message.role
+        const messageHead=document.createElement('div');
+        messageHead.classList.add('message-head');
+        if (message.message.role=="user")
+            messageHead.innerHTML=`${message.message.role}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="stopOrReGenerate(event)">${(currentChatId==generatingChatID && messages.indexOf(message)==generatingMessageIndex?"⏹️":"🔃")}</button></div>`;
+        else
+            messageHead.innerHTML=`${message.message.role}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button></div>`;
+        entryDiv.appendChild(messageHead);
         entryDiv.appendChild(messageDiv)
         let usageString=""
         if (message.usage)
@@ -575,6 +623,7 @@ function getService(name="OpenAI Chat Stream")
 
 function sendMessage(event,settings=null) {
     if (event) event.preventDefault();
+    if (generatingMessageIndex!=null) return;
     if (settings==null) settings=chats[currentChatId].settings;
     const input = document.getElementById('message-text');
     const message = convertNewlinesToMarkdown(input.value.trim());
@@ -584,7 +633,11 @@ function sendMessage(event,settings=null) {
     packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),settings.getAttribute("model"));
     addMessage(chatID, packedMessage);
     input.value = '';
+    document.getElementById("message-input-send").setAttribute("disabled",true);
     // console.log(ServiceTable);
+    generatingChatID=chatID;
+    generatingMessageIndex=chats[chatID].messages.length-1;
+    renderMessages();
     askService(getService(settings.getModelSettings().service),chatID,chats[chatID].messages.length-1,chats[chatID].settings);
 }
 
@@ -616,12 +669,17 @@ function getContext(messages,index,settings) {
             break;
         }
     }
+    if (messages[0].message["role"]=="system" && messages[0].message.content!="")
+    {
+        contextMessage.unshift(messages[0].message);
+    }
     contextMessage.push(messages[index].message)
     return {messages:contextMessage,tokens:messageTokens};
 }
 
 async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
+    console.log(context)
     let responseIndex=null;
     const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
     for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint))
@@ -656,7 +714,20 @@ async function askService(service,chatID,index,settings) {
             saveChats();
             break;
         }
+        if (stopGenerating)
+        {
+            stopGenerating=false;
+            break;
+        }
     }
+    if (stopGenerating)
+    {
+        stopGenerating=false;
+    }
+    generatingChatID=null;
+    generatingMessageIndex=null;
+    document.getElementById("message-input-send").removeAttribute("disabled");
+    renderMessages();
 }
 
 function openAbout(event) {

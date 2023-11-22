@@ -47,6 +47,7 @@ body {
     border-radius: 5px;
     width: 100%;
     box-sizing: border-box;
+    min-height: 50px;
     /* min-width: 95%;
     max-width: 95%; */
 }
@@ -66,6 +67,13 @@ body {
     color: red;
     align-self: flex-start;
 }
+.system {
+    background-color: #ffffff;
+    border-color: rgb(0, 0, 0);
+    border-style: none;
+    border-width: 1px;
+    align-self: flex-start;
+}
 .entry {
     position: relative;
     display: flex;
@@ -81,12 +89,35 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.message-head {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1em;
+    font-weight: bold;
+}
+.message-head button {
+    border:none;
+    padding:5px;
+    background-color: #f7f7f7;
+}
+.message-head button:hover {
+    background-color: rgb(0, 183, 255);
+}
+.message-edit
+{
+    width: 100%;
+    box-sizing: border-box;
+}
 #message-input {
     display: flex;
     padding: 10px;
     background-color: #fff;
     border-top: 1px solid #ddd;
 }
+.message-edit,
 #message-input textarea {
     flex-grow: 1;
     padding: 10px;
@@ -101,6 +132,10 @@ body {
     color: #fff;
     cursor: pointer;
     border-radius: 5px;
+}
+
+#message-input button:disabled {
+    background-color: grey;
 }
 #settings-dialog {
     display: none;
@@ -307,4 +342,8 @@ code {
 
 .unpin {
     color:red;
+}
+
+.unselectable {
+    user-select: none;
 }
