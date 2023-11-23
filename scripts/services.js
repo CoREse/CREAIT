@@ -5,8 +5,26 @@ const ServiceTable={
 
 // Helper function to create a timeout promise
 function createTimeoutPromise(duration) {
-    return new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Operation timed out')), duration);
+    // return new Promise((_, reject) => {
+    //     setTimeout(() => reject(new Error('Operation timed out')), duration);
+    // });
+    return new Promise((resolve, reject) => {
+      // Define the timeout for 10 seconds
+      const timeout = duration;
+      let timePassed = 0;
+  
+      // Set up the interval to check the global variable every 0.1 seconds
+      const intervalId = setInterval(() => {
+        if (stopGenerating) {
+          clearInterval(intervalId);
+          reject(new Error('Stopped by user.'));
+        }
+        timePassed += 100;
+        if (timePassed >= timeout) {
+          clearInterval(intervalId);
+          reject(new Error(`Timed out after ${timeout/1000} seconds.`));
+        }
+      }, 100);
     });
 };
 
@@ -29,7 +47,7 @@ async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://ap
                 headers: headers,
                 body: JSON.stringify(data)
                 }),
-            createTimeoutPromise(30000)
+            createTimeoutPromise(10000)
         ]);
 
         let aiMessage="";
@@ -92,9 +110,12 @@ async function * chatOpenAIStream(apiKey, model, messages, accessUrl="https://ap
             yield {status:"error", data:  {message: { role: "error", content: `OpenAI: Error communicating with the API.` }} };
         }
     } catch (error) {
-        if (error.message === 'Operation timed out') {
-            console.error('Timeout error:', error);
-            yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Operation timed out after 10 seconds.` }}};
+        if (error.message=='Stopped by user.')
+        {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        }
+        else if (error.message.slice(0,"Timed out after".length) === 'Timed out after') {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
         } else {
             yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Error communicating with the API. Error: ${error}` }}};
         }
@@ -118,7 +139,7 @@ async function * chatOpenAI(apiKey, model, messages, accessUrl="https://api.open
                 },
                 body: JSON.stringify(data)
             }),
-            createTimeoutPromise(10000)
+            createTimeoutPromise(30000)
         ]) ;
         const rdata=await Promise.race([
             response.json(),
@@ -130,11 +151,13 @@ async function * chatOpenAI(apiKey, model, messages, accessUrl="https://api.open
         yield {status: "completed", data: {message:aiMessage, usage:responseUsage, model:usedModel}};
     }
     catch(error) {
-        if (error.message === 'Operation timed out') {
-            console.error('Timeout error:', error);
-            yield {status:"error", data:{ message: { role: "error", content: `OpenAI: Operation timed out after 10 seconds.` }}};
+        if (error.message=='Stopped by user.')
+        {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        }
+        else if (error.message.slice(0,"Timed out after".length) === 'Timed out after') {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
         } else {
-            console.error('Error:', error);
             yield {status: "completed", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
         }
     }

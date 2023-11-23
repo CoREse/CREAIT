@@ -1,5 +1,5 @@
 const about={
-    version:"v0.5.1",
+    version:"v0.6.0",
     author:"CRE"
 }
 class Settings
@@ -398,12 +398,11 @@ function newChat() {
 }
 
 function renameChat(event, chatID) {
-    console.log(chatID)
     const chatDiv=document.getElementById("chat-"+chatID);
     // Create a new input element
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = chatDiv.getElementsByTagName("span").textContent; // Set the input value to the current text
+    input.value = chatDiv.getElementsByTagName("span")[0].textContent; // Set the input value to the current text
     input.classList.add('chat-input'); // Add any necessary classes
 
     // Replace the textContent with the input element
@@ -454,7 +453,14 @@ document.getElementById("chat-list").addEventListener('contextmenu', function(ev
         currentMenu.remove();
         currentMenu=null;
     }
-    const chatID=event.target.dataset.ID;
+    let target=event.target;
+    if (target.nodeName!='DIV')
+    {
+        target=target.closest('div');
+    }
+    if (!target) return;
+    if (!target.classList.contains('chat-entry')) return;
+    chatID=target.dataset.ID;
     var menu = document.createElement('div');
     menu.innerHTML = `<div id="chat-menu"><button id="chat-rename" onclick="renameChat(event,${chatID})">Rename Chat</button><button id="chat-edit" onclick="editChat(event,${chatID})">Edit Chat</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">Delete Chat</button></div>`;;
     menu.style.position = 'absolute';
@@ -631,6 +637,47 @@ function getService(name="OpenAI Chat Stream")
     // return window.services.ServiceTable[name];
 }
 
+async function generateTitle(chatID)
+{
+    const messages=[{role: "system", content: "Summarize a concise name for the conversation based on the content. Give me only the summarized name."}];
+    let haveUser=false;
+    let haveAssitant=false;
+    for (let i=1;i<chats[chatID].messages.length;++i) {
+        if (chats[chatID].messages[i].message.role=="user" && chats[chatID].messages[i].fulfilled)
+        {
+            messages.push(chats[chatID].messages[i].message);
+            haveUser=true;
+            continue;
+        }
+        if(haveUser && chats[chatID].messages[i].message.role=="assistant")
+        {
+            messages.push(chats[chatID].messages[i].message);
+            haveAssitant=true;
+            break;
+        }
+    }
+    // console.log(messages)
+    if (haveUser && haveAssitant)
+    {
+        for await (const response of getService("OpenAI Chat Stream")(Settings.getAttribute("apiKey"),"gpt-3.5-turbo-1106",messages, Settings.getAttribute("apiUrl"), Settings.settingAlternates.modelSet["gpt-3.5-turbo-1106"].apiEndpoint))
+        {
+            if (response.status=="error") {
+                break;
+            }
+            if (response.data.message.content!="")
+            {
+                chats[chatID].name=response.data.message.content;
+                saveChats();
+                renderChats();
+                renderHeader();
+            }
+            if (response.status=="completed") {
+                break;
+            }
+        }
+    }
+}
+
 function sendMessage(event,settings=null) {
     if (event) event.preventDefault();
     if (generatingMessageIndex!=null) return;
@@ -695,6 +742,7 @@ async function askService(service,chatID,index,settings) {
     for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint))
     {
         if (response.status=="error") {
+            if (response.data.message.content=="Stopped by user.") break;
             addMessage(chatID, { message: response.data.message });
             console.log("[error]", response)
             saveChats();
@@ -725,6 +773,7 @@ async function askService(service,chatID,index,settings) {
         if (response.status=="completed") {
             chats[chatID].messages[index].fulfilled = true;
             saveChats();
+            if (chats[chatID].name=="Untitled") generateTitle(chatID);
             break;
         }
         if (stopGenerating)
