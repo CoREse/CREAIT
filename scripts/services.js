@@ -1,6 +1,8 @@
 const ServiceTable={
     "OpenAI Chat Stream": chatOpenAIStream,
-    "OpenAI Chat": chatOpenAI
+    "OpenAI Chat": chatOpenAI,
+    "OpenAI Create Image": createImageOpenAI,
+    "OpenAI Create Speech": createSpeechOpenAI
 }
 
 // Helper function to create a timeout promise
@@ -158,7 +160,91 @@ async function * chatOpenAI(apiKey, model, messages, accessUrl="https://api.open
         else if (error.message.slice(0,"Timed out after".length) === 'Timed out after') {
             yield {status:"error", data:{ message: { role: "error", content: error.message }}};
         } else {
-            yield {status: "completed", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
+            yield {status: "error", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
+        }
+    }
+}
+
+async function * createImageOpenAI(apiKey, model, prompt, n=1, size="1024x1024", accessUrl="https://api.openai.com", endpoint='/v1/images/generations') {
+    const data = {
+        model: model,
+        prompt: prompt,
+        n: n,
+        size: size,
+        response_format:"b64_json"
+    };
+
+    try
+    {
+        const response= await Promise.race([
+            fetch(accessUrl+endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(data)
+            }),
+            createTimeoutPromise(30000)
+        ]) ;
+        const rdata=await Promise.race([
+            response.json(),
+            createTimeoutPromise(10000)
+        ])
+        yield {status: "completed", data: { message: { role: "assistant", content: `${Object.keys(rdata.data[0]).includes("revised_prompt")?rdata.data[0].revised_prompt:""}<img src="data:image/png;base64,${rdata.data[0].b64_json}"/>`}}};
+    }
+    catch(error) {
+        if (error.message=='Stopped by user.')
+        {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        }
+        else if (error.message.slice(0,"Timed out after".length) === 'Timed out after') {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        } else {
+            yield {status: "error", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
+        }
+    }
+}
+
+async function * createSpeechOpenAI(apiKey, model, input, voice="alloy", speed="1.0", response_format="mp3", accessUrl="https://api.openai.com", endpoint='/v1/audio/speech') {
+    const data = {
+        model: model,
+        input: input,
+        voice:voice,
+        speed: speed,
+        response_format:response_format
+    };
+
+    try
+    {
+        const response= await Promise.race([
+            fetch(accessUrl+endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(data)
+            }),
+            createTimeoutPromise(10000)
+        ]) ;
+        const blob=await Promise.race([
+            response.blob(),
+            createTimeoutPromise(10000)
+        ])
+        const url = URL.createObjectURL(blob);
+        // yield {status: "completed", data: { message: { role: "assistant", content: `<audio controls><source src="${url}" type="audio/mpeg"></audio>`}}};
+        yield {status: "completed", data: { message: { role: "assistant", content: `<audio controls="true" src="${url}" type="audio/mpeg"></audio>`}}};
+    }
+    catch(error) {
+        if (error.message=='Stopped by user.')
+        {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        }
+        else if (error.message.slice(0,"Timed out after".length) === 'Timed out after') {
+            yield {status:"error", data:{ message: { role: "error", content: error.message }}};
+        } else {
+            yield {status: "error", data: {message:{role:"error", content:'OpenAI: Error communicating with the API.'}}};
         }
     }
 }

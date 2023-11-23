@@ -1,5 +1,5 @@
 const about={
-    version:"v0.6.0",
+    version:"v0.7.0",
     author:"CRE"
 }
 class Settings
@@ -74,6 +74,10 @@ class Settings
         modelSet:{
             'gpt-3.5-turbo-1106':{service: "OpenAI Chat Stream", apiUrl:undefined, apiEndpoint:"/v1/chat/completions"},
             'gpt-4-1106-preview':{service: "OpenAI Chat Stream", apiUrl:undefined, apiEndpoint:"/v1/chat/completions"},
+            'dall-e-2':{service: "OpenAI Create Image", apiUrl:undefined, apiEndpoint:"/v1/images/generations"},
+            'dall-e-3':{service: "OpenAI Create Image", apiUrl:undefined, apiEndpoint:"/v1/images/generations"},
+            'tts-1':{service: "OpenAI Create Speech", apiUrl:undefined, apiEndpoint:"/v1/audio/speech"},
+            'tts-1-hd':{service: "OpenAI Create Speech", apiUrl:undefined, apiEndpoint:"/v1/audio/speech"},
         }
     }
 };
@@ -84,9 +88,11 @@ let chats = {
     1:{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
     2:{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
     3:{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
-    4:{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
+    4:{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}], pinned:true},
+    5:{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}], pinned:true},
+    6:{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
 };
-let chatOrder=[0,1,2,3,4];
+let chatOrder=[0,1,2,3,4,5,6];
 
 function onSettingChange(event, settings)
 {
@@ -554,7 +560,7 @@ function renderMessages() {
         if (message.message.role != "") messageDiv.classList.add(message.message.role);
         // messageDiv.innerHTML=message.message.content;
         // messageDiv.innerHTML = window.Prism.highlightElement(marked.parse(message.message.content));//won't work since not every element contains a code tag
-        messageDiv.innerHTML = marked.parse(DOMPurify.sanitize(message.message.content));
+        messageDiv.innerHTML = marked.parse(message.message.content);
         const messageIndex=messages.indexOf(message);
         messageDiv.setAttribute("id","message-"+currentChatId+"-"+messageIndex);
         const entryDiv=document.createElement('div');
@@ -597,8 +603,15 @@ function renderMessages() {
 }
 
 function getTokenNumber(message,model) {
-    const encoder=window.tiktoken.encodingForModel(model);
-    return encoder.encode(message).length;
+    try
+    {
+        const encoder=window.tiktoken.encodingForModel(model);
+        return encoder.encode(message).length;
+    }
+    catch (error)
+    {
+        return 0;
+    }
 }
 
 function getLastUserMessage(messages) {
@@ -687,7 +700,7 @@ function sendMessage(event,settings=null) {
     if (message === '') return;
     packedMessage = {message:{role: "user", content:message}, fulfilled: false};
     const chatID=currentChatId;
-    packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),settings.getAttribute("model"));
+    if (["chatOpenAIStream", "chatOpenAI"].includes(settings.getModelSettings().service)) packedMessage.messageTokens=getTokenNumber(JSON.stringify(packedMessage.message),settings.getAttribute("model"));
     addMessage(chatID, packedMessage);
     input.value = '';
     document.getElementById("message-input-send").setAttribute("disabled",true);
@@ -709,17 +722,25 @@ function addMessage(chatID, message, location=null) {
 
 function getContext(messages,index,settings) {
     let context=[];
-    if (settings.getAttribute("contextNumber")!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true))).slice(-settings.getAttribute("contextNumber"));
+    if (settings.getAttribute("contextNumber")!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true) && (m.specialType==undefined || m.specialType==null))).slice(-settings.getAttribute("contextNumber"));
     const contextMessage=[];
+    const contextNumber=settings.getAttribute("contextNumber");
+    const contextTokens=settings.getAttribute("contextTokens");
+    let messageNumber=0;
     let messageTokens=0;
-    const reversedContext=context.reverse()
-    for (m of reversedContext)
-    {
-        if (m.messageTokens==undefined) m.messageTokens=getTokenNumber(JSON.stringify(m.message),settings.getAttribute("model"));
-        if (messageTokens+m.messageTokens<=settings.getAttribute("contextTokens"))
+    for (let i=index-1;i>=0;--i) {
+        if (messageNumber>=contextNumber) break;
+        if (messageTokens>=contextTokens) break;
+        if (messages[i].message.role=="error") continue;
+        if (messages[i].message.role=="system") continue;
+        if (messages[i].message.role=="user" && !messages[i].fulfilled) continue;
+        if (messages[i].specialType!=undefined && messages[i].specialType!=null) continue;
+        if (messages[i].messageTokens==undefined) messages[i].messageTokens=getTokenNumber(JSON.stringify(messages[i].message),settings.getAttribute("model"));
+        if (messageTokens+messages[i].messageTokens<=contextTokens)
         {
-            contextMessage.unshift(m.message);
-            messageTokens+=m.messageTokens;
+            contextMessage.unshift(messages[i].message);
+            ++messageNumber;
+            messageTokens+=messages[i].messageTokens;
         }
         else
         {
@@ -736,51 +757,90 @@ function getContext(messages,index,settings) {
 
 async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
-    // console.log(context)
+    console.log(context)
     let responseIndex=null;
     const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
-    for await (const response of service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint))
+    
+    let ask=null;
+    let specialType=null;
+    if (["chatOpenAIStream", "chatOpenAI"].includes(service.name))
     {
-        if (response.status=="error") {
-            if (response.data.message.content=="Stopped by user.") break;
-            addMessage(chatID, { message: response.data.message });
-            console.log("[error]", response)
-            saveChats();
-            if (currentChatId==chatID) renderMessages();
-            break;
-        }
-        let noUsage=false;
-        if (responseIndex==null)
+        ask=service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages, settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint);
+    }
+    else if (["createImageOpenAI"].includes(service.name))
+    {
+        ask=service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages[context.messages.length-1].content, 1, "1024x1024", settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint);
+        specialType="image";
+    }
+    else if (["createSpeechOpenAI"].includes(service.name))
+    {
+        ask=service(settings.getAttribute("apiKey"),settings.getAttribute("model"),context.messages[context.messages.length-1].content, "alloy", "1.0", "mp3", settings.getAttribute("apiUrl"), settings.getModelSettings().apiEndpoint);
+        specialType="audio";
+    }
+    if (ask!=null)
+    {
+        for await (const response of ask)
         {
-            responseIndex=addMessage(chatID, response.data);
-            if (response.data.message.role=="") continue;
-            if (response.data.usage==undefined)
+            if (response.status=="error") {
+                if (response.data.message.content=="Stopped by user.") break;
+                addMessage(chatID, { message: response.data.message });
+                console.log("[error]", response)
+                saveChats();
+                if (currentChatId==chatID) renderMessages();
+                break;
+            }
+            let noUsage=false;
+            if (responseIndex==null)
             {
-                noUsage=true;
-                chats[chatID].messages[responseIndex].usage=initialUsage;
+                responseIndex=addMessage(chatID, response.data);
+                if (response.data.message.role=="") continue;
+                if (response.data.usage==undefined)
+                {
+                    noUsage=true;
+                    chats[chatID].messages[responseIndex].usage=initialUsage;
+                }
+                chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
+                if (specialType!=null) chats[chatID].messages[responseIndex].specialType=specialType;
+            }
+            else chats[chatID].messages[responseIndex]=response.data;
+            if (response.data.usage==undefined || noUsage)
+            {
+                chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
+                chats[chatID].messages[responseIndex].usage.total_tokens=initialUsage.prompt_tokens+chats[chatID].messages[responseIndex].usage.completion_tokens;
             }
             chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
-        }
-        else chats[chatID].messages[responseIndex]=response.data;
-        if (response.data.usage==undefined || noUsage)
-        {
-            chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
-            chats[chatID].messages[responseIndex].usage.total_tokens=initialUsage.prompt_tokens+chats[chatID].messages[responseIndex].usage.completion_tokens;
-        }
-        chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
-        saveChats();
-        if (currentChatId==chatID) renderMessages();
-        if (response.status=="completed") {
-            chats[chatID].messages[index].fulfilled = true;
             saveChats();
-            if (chats[chatID].name=="Untitled") generateTitle(chatID);
-            break;
+            if (currentChatId==chatID) renderMessages();
+            if (response.status=="completed") {
+                chats[chatID].messages[index].fulfilled = true;
+                saveChats();
+                if (chats[chatID].name=="Untitled") generateTitle(chatID);
+                break;
+            }
+            if (stopGenerating)
+            {
+                stopGenerating=false;
+                break;
+            }
         }
-        if (stopGenerating)
-        {
-            stopGenerating=false;
-            break;
-        }
+        // else if (["createImageOpenAI"].includes(service.name))
+        // {
+        //     if (responseIndex==null)
+        //     {
+        //         responseIndex=addMessage(chatID, {role:"assistant", content:`<img src=${response.data[0].url}/>`});
+        //     }
+        //     else
+        //     {
+        //         chats[chatID].messages[responseIndex].content=`<img src=${response.data[0].url}/>`;
+        //     }
+        //     saveChats();
+        //     if (currentChatId==chatID) renderMessages();
+        //     if (stopGenerating)
+        //     {
+        //         stopGenerating=false;
+        //         break;
+        //     }
+        // }
     }
     if (stopGenerating)
     {
