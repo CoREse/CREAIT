@@ -10,14 +10,20 @@
 </head>
 <body>
 <div id="left-panel">
-    <div id="chat-list">
-        <button onclick="newChat()">New Chat</button>
-        <!-- Chat list will be dynamically inserted here -->
+    <div id="left-panel-up">
+        <div id="logo-panel"><image id="icon" src="imgs/icon.png"/><image id="logo" src="imgs/logo.png"/><button id="fold-left-panel" onclick="toggleLeftPanel(event)">|←</button></div>
+        <div id="chat-list">
+            <button onclick="newChat()">New Chat</button>
+            <!-- Chat list will be dynamically inserted here -->
+        </div>
     </div>
-    <div id="toolbar"><button onclick="openSettings()">Settings</button><button onclick="openAbout()">About</button></div>
+    <div id="left-panel-bottom">
+        <div id="toolbar"><button onclick="openSettings()">Settings</button><button onclick="openAbout()">About</button></div>
+    </div>
 </div>
 <div id="chat-window">
     <div id="chat-header">
+        <button id="unfold-left-panel" onclick="toggleLeftPanel(event)">→|</button>
         <div id="chat-title">OpenAI Chat</div>
         <div id="chat-settings" onclick="onChatSettings(event)" title="settings">🔧</div>
         <div class="quick-panel-item" title="model">

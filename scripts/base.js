@@ -1,5 +1,5 @@
 const about={
-    version:"v0.7.1",
+    version:"v0.8.0",
     author:"CRE"
 }
 class Settings
@@ -256,6 +256,18 @@ function loadSettings() {
                 Settings.defaultSettings[key]=savedDefaultSettingsObj[key];
             }
         }
+    }
+}
+
+function toggleLeftPanel(event) {
+    if (event.target.getAttribute("id")=="fold-left-panel") {
+        document.getElementById("left-panel").style.display = "none";
+        document.getElementById("unfold-left-panel").style.display="block";
+    }
+    else
+    {
+        document.getElementById("left-panel").style.display = "flex";
+        document.getElementById("unfold-left-panel").style.display="none";
     }
 }
 

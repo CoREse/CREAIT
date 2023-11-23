@@ -350,3 +350,49 @@ code {
 .unselectable {
     user-select: none;
 }
+
+#logo-panel {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color:white;
+    border: solid;
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: darkred;
+}
+
+#icon {
+    height: 30px;
+    width: 30px;
+    margin: 10px;
+    box-sizing: border-box;
+}
+
+#logo {
+    height: 30px;
+    margin-right: 20px;
+    margin-left: 0px;
+    box-sizing: border-box;
+}
+
+#fold-left-panel,
+#unfold-left-panel {
+    display: block;
+    height: 30px;
+    box-sizing: border-box;
+    border: none;
+    background-color: white;
+    border-radius: 15px;
+}
+
+#unfold-left-panel {
+    display: none;
+}
+
+#fold-left-panel:hover,
+#unfold-left-panel:hover {
+    background-color: #f0f0f0;
+}
