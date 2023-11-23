@@ -7,9 +7,6 @@ const ServiceTable={
 
 // Helper function to create a timeout promise
 function createTimeoutPromise(duration) {
-    // return new Promise((_, reject) => {
-    //     setTimeout(() => reject(new Error('Operation timed out')), duration);
-    // });
     return new Promise((resolve, reject) => {
       // Define the timeout for 10 seconds
       const timeout = duration;
@@ -233,7 +230,6 @@ async function * createSpeechOpenAI(apiKey, model, input, voice="alloy", speed="
             createTimeoutPromise(10000)
         ])
         const url = URL.createObjectURL(blob);
-        // yield {status: "completed", data: { message: { role: "assistant", content: `<audio controls><source src="${url}" type="audio/mpeg"></audio>`}}};
         yield {status: "completed", data: { message: { role: "assistant", content: `<audio controls="true" src="${url}" type="audio/mpeg"></audio>`}}};
     }
     catch(error) {

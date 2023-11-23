@@ -1,5 +1,5 @@
 const about={
-    version:"v0.7.0",
+    version:"v0.7.1",
     author:"CRE"
 }
 class Settings
@@ -823,24 +823,6 @@ async function askService(service,chatID,index,settings) {
                 break;
             }
         }
-        // else if (["createImageOpenAI"].includes(service.name))
-        // {
-        //     if (responseIndex==null)
-        //     {
-        //         responseIndex=addMessage(chatID, {role:"assistant", content:`<img src=${response.data[0].url}/>`});
-        //     }
-        //     else
-        //     {
-        //         chats[chatID].messages[responseIndex].content=`<img src=${response.data[0].url}/>`;
-        //     }
-        //     saveChats();
-        //     if (currentChatId==chatID) renderMessages();
-        //     if (stopGenerating)
-        //     {
-        //         stopGenerating=false;
-        //         break;
-        //     }
-        // }
     }
     if (stopGenerating)
     {
@@ -855,7 +837,15 @@ async function askService(service,chatID,index,settings) {
 function openAbout(event) {
     aboutDiv=document.getElementById('about-dialog');
     aboutDiv.style.display = 'block';
-    aboutDiv.innerHTML=`<p>Version: ${about.version}</p><p>Author: ${about.author}</p><button onclick="closeAbout()">Close</button>`;
+    aboutDiv.innerHTML=`<p>Version: ${about.version}</p><p>Author: ${about.author}</p><button onclick="reset()">Clear and Reset</button><button onclick="closeAbout()">Close</button>`;
+}
+
+function reset(event) {
+    if (confirm("Are you sure to CLEAR ALL data and reset the app?"))
+    {
+        localStorage.clear();
+        location.reload();
+    }
 }
 
 function closeAbout(event) {
