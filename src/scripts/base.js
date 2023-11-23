@@ -1,5 +1,5 @@
 const about={
-    version:"v0.8.1",
+    version:"v0.8.2",
     author:"CRE"
 }
 class Settings
@@ -84,15 +84,15 @@ class Settings
 
 let currentChatId = null;
 let chats = {
-    0:{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
-    1:{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
-    2:{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
-    3:{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
-    4:{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}], pinned:true},
-    5:{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}], pinned:true},
-    6:{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
+    "0":{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
+    "1":{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
+    "2":{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
+    "3":{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
+    "4":{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}], pinned:true},
+    "5":{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}], pinned:true},
+    "6":{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
 };
-let chatOrder=[0,1,2,3,4,5,6];
+let chatOrder=["0","1","2","3","4","5","6"];
 
 function onSettingChange(event, settings)
 {
@@ -311,11 +311,11 @@ function reorderChats () {
     // chatOrder.sort((a, b) => chats[a].pinned===true?-1:1);
     chatOrder.sort((a, b) => 
     {
-        if ((chats[a].pinned===true && chats[b].pinned==true) || (chats[a].pinned!==true && chats[b].pinned!==true))
+        if ((chats[a].pinned==true && chats[b].pinned==true) || (chats[a].pinned!==true && chats[b].pinned!==true))
         {
             return chatOrder.indexOf(a)-chatOrder.indexOf(b);
         }
-        return chats[a].pinned===true?-1:1;
+        return chats[a].pinned==true?-1:1;
     });
     localStorage.setItem("chatOrder",JSON.stringify(chatOrder));
     renderChats();

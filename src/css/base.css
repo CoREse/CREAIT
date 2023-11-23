@@ -9,7 +9,11 @@ body {
 #chat-list {
     overflow-y: auto;
 }
-#chat-list #new-chat,.chat-entry {
+#chat-list {
+    background-color: white;
+    margin-top: 5px;
+}
+.chat-entry,#new-chat {
     width: 100%;
     box-sizing: border-box;
     padding: 10px;
@@ -22,6 +26,13 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+#new-chat {
+    margin-bottom:5px;
+    border:solid;
+    border-radius: 5px;
+    border-color: grey;
+    border-width: 1px;
 }
 #chat-list #new-chat:hover,.chat-entry:hover {
     background-color: #f0f0f0;
@@ -322,11 +333,11 @@ code {
     background-color: #fff;
 }
 
-.dragging {
+div.chat-entry.dragging {
     opacity: 0.5;
 }
 
-.over {
+div.chat-entry.over {
     border-top: 2px dashed #000;
     border-bottom: 2px dashed #000;
 }
@@ -358,8 +369,8 @@ code {
     align-items: center;
     justify-content: space-between;
     background-color:white;
-    border: solid;
-    border-radius: 10px;
+    border-bottom: solid;
+    /* border-radius: 10px; */
     border-width: 2px;
     border-color: darkred;
 }
