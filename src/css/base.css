@@ -8,10 +8,9 @@ body {
 }
 #chat-list {
     overflow-y: auto;
-}
-#chat-list {
     background-color: white;
-    margin-top: 5px;
+    padding-top: 5px;
+    flex-grow: 1;
 }
 .chat-entry,#new-chat {
     width: 100%;
@@ -28,11 +27,17 @@ body {
     text-overflow: ellipsis;
 }
 #new-chat {
-    margin-bottom:5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom:0px;
     border:solid;
     border-radius: 5px;
     border-color: grey;
     border-width: 1px;
+    margin-top: 5px;
+    position: relative;
+    overflow: visible;
 }
 #chat-list #new-chat:hover,.chat-entry:hover {
     background-color: #f0f0f0;
@@ -298,12 +303,12 @@ code {
     justify-content: center;
 }
 
-#chat-menu {
+#context-menu {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
-#chat-menu button {
+#context-menu button {
     /* width: 100%; */
     box-sizing: border-box;
     /* padding: 10px; */
@@ -314,7 +319,7 @@ code {
     outline: none;
     transition: background-color 0.3s;
 }
-#chat-menu button:hover {
+#context-menu button:hover {
     background-color: #f0f0f0;
 }
 
@@ -379,6 +384,7 @@ div.chat-entry.over {
     height: 30px;
     width: 30px;
     margin: 10px;
+    border-radius: 5px;
     box-sizing: border-box;
 }
 
@@ -406,4 +412,40 @@ div.chat-entry.over {
 #fold-left-panel:hover,
 #unfold-left-panel:hover {
     background-color: #f0f0f0;
+}
+
+#character-button {
+    display: block;
+    box-sizing: border-box;
+    border: none;
+    background-color: white;
+    padding: 5px;
+    margin:-5px;
+    border-radius: 50%;
+}
+
+#character-button:hover {
+    background-color: lightblue;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #f9f9f9;
+    min-width: 60px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    max-height: 300px;
+    overflow-y: scroll;
+    z-index: 1;
+}
+.dropdown-menu .menu-entry {
+    color: black;
+    padding: 10px;
+    text-decoration: none;
+    display: block;
+}
+.dropdown-menu .menu-entry:hover {
+    background-color: #f1f1f1;
 }

@@ -1,5 +1,5 @@
 const about={
-    version:"v0.8.2",
+    version:"v0.9.0",
     author:"CRE"
 }
 class Settings
@@ -9,7 +9,7 @@ class Settings
         {
             for (let key of Object.keys(copy))
             {
-                this[key]=copy[key];
+                this[key]=JSON.parse(JSON.stringify(copy[key]));
             }
         }
     };
@@ -80,18 +80,28 @@ class Settings
             'tts-1-hd':{service: "OpenAI Create Speech", apiUrl:undefined, apiEndpoint:"/v1/audio/speech"},
         }
     }
+    static initialSavedCharacters={
+        "Answer_to_single_query":{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
+        "Answer_to_single_query_(GPT4)":{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
+        "Translation" :{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}],pinned:true},
+        "Translation_(GPT4)":{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}],pinned:true},
+        "Generate_images":{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}],pinned:true},
+        "Generate_speeches":{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}],pinned:true},
+        "Just_chat":{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
+    }
+    static savedCharacters=JSON.parse(JSON.stringify(Settings.initialSavedCharacters));
 };
 
 let currentChatId = null;
 let chats = {
-    "0":{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
-    "1":{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}], pinned:true},
-    "2":{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
-    "3":{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}], pinned:true},
-    "4":{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}], pinned:true},
-    "5":{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}], pinned:true},
-    "6":{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
-};
+    "0": genChatFromSaved(Settings.savedCharacters["Answer_to_single_query"],true),
+    "1": genChatFromSaved(Settings.savedCharacters["Answer_to_single_query_(GPT4)"],true),
+    "2": genChatFromSaved(Settings.savedCharacters["Translation"],true),
+    "3": genChatFromSaved(Settings.savedCharacters["Translation_(GPT4)"],true),
+    "4": genChatFromSaved(Settings.savedCharacters["Generate_images"],true),
+    "5": genChatFromSaved(Settings.savedCharacters["Generate_speeches"],true),
+    "6": genChatFromSaved(Settings.savedCharacters["Just_chat"],false),
+}
 let chatOrder=["0","1","2","3","4","5","6"];
 
 function onSettingChange(event, settings)
@@ -204,7 +214,7 @@ function saveSettings() {
     //     if (value.slice(0, 10)=="*default*") settings[key]=undefined;
     //     else settings[key]=value;
     // }
-    saveChats();
+    localStorage.setItem('savedCharacters', JSON.stringify(Settings.savedCharacters));
 }
 
 function closeSettings() {
@@ -212,7 +222,7 @@ function closeSettings() {
 }
 
 function onChatSettings(event) {
-    openSettings(event, chats[currentChatId].settings);
+    if(currentChatId!=null) openSettings(event, chats[currentChatId].settings);
 }
 
 function quickChange(event) {
@@ -256,6 +266,10 @@ function loadSettings() {
                 Settings.defaultSettings[key]=savedDefaultSettingsObj[key];
             }
         }
+    }
+    const savedSavedCharacters = localStorage.getItem('savedCharacters');
+    if (savedSavedCharacters) {
+        Settings.savedCharacters=JSON.parse(savedSavedCharacters);
     }
 }
 
@@ -321,10 +335,34 @@ function reorderChats () {
     renderChats();
 }
 
+function toggleCharacterMenu(event)
+{
+    event.stopPropagation();
+    const div=document.getElementById("character-menu");
+    div.style.display = div.style.display === "block" ? "none" : "block";
+}
+
 let draggedItem = null;
 function renderChats() {
     const chatList = document.getElementById('chat-list');
-    chatList.innerHTML = '<button id="new-chat" onclick="newChat()">New Chat</button>';
+    // chatList.innerHTML = '<button id="new-chat" onclick="newChat()">New Chat</button>';
+    // chatList.innerHTML='<button id="new-chat" onclick="newChat()"><span>New Chat</span><span id="character-button" onclick="toggleCharacterMenu(event)">🤖</span><div id="character-menu" class="dropdown-menu"></div></button>';
+    chatList.innerHTML = '';
+    const charMenu=document.getElementById("character-menu");
+    charMenu.innerHTML="";
+    for (key of Object.keys(Settings.savedCharacters))
+    {
+        const entry=document.createElement("div");
+        entry.classList.add("menu-entry");
+        entry.id=key.replaceAll(" ","_");
+        entry.innerHTML=Settings.savedCharacters[key].name;
+        entry.onclick = (event) => {
+            event.stopPropagation();
+            newChat(event.target.id)
+            toggleCharacterMenu(event);
+        }
+        charMenu.appendChild(entry);
+    }
     for (let i=0;i<chatOrder.length;++i) {
         const chatId = chatOrder[i];
         const chatdiv = document.createElement('div');
@@ -393,6 +431,7 @@ function renderChats() {
         //drag end
 
         chatList.appendChild(chatdiv);
+        if (chatId==currentChatId) chatdiv.scrollIntoView();
     }
     if (currentChatId!=null)
     {
@@ -407,12 +446,35 @@ function switchChat(chatId) {
     renderMessages();
 }
 
-function newChat() {
-    const chatId = Date.now().toString();
-    chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[{message:{role: "system", content: ""}}]};
-    chatOrder.push(chatId);
-    saveChats();
-    switchChat(chatId);
+function genChatFromSaved(savedChar,pinned=null) {
+    const nc= {name:savedChar.name, settings: new Settings(savedChar.settings), messages:JSON.parse(JSON.stringify(savedChar.messages))};
+    if (pinned!=null) nc.pinned=pinned;
+    return nc;
+}
+
+function newChat(savedName=null) {
+    if (savedName==null)
+    {
+        const chatId = Date.now().toString();
+        chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[{message:{role: "system", content: ""}}]};
+        chatOrder.unshift(chatId);
+        reorderChats()
+        saveChats();
+        switchChat(chatId);
+    }
+    else
+    {
+        if (savedName in Settings.savedCharacters)
+        {
+            const chatId = Date.now().toString();
+            const savedChar=Settings.savedCharacters[savedName];
+            chats[chatId] = genChatFromSaved(savedChar);
+            chatOrder.unshift(chatId);
+            reorderChats();
+            saveChats();
+            switchChat(chatId);
+        }
+    }
 }
 
 function renameChat(event, chatID) {
@@ -442,6 +504,7 @@ function renameChat(event, chatID) {
             renderChats();
         }
     });
+    chatDiv.onclick=null;
 }
 
 function editChat(event, chatID) {
@@ -451,7 +514,11 @@ function editChat(event, chatID) {
 function deleteChat(event, chatID) {
     delete chats[chatID];
     chatOrder=chatOrder.filter(item => item != chatID);//not frequently called, the efficiency is not that important
-    if (currentChatId==chatID) currentChatId=null;
+    if (currentChatId==chatID)
+    {
+        currentChatId=null;
+        renderHeader();
+    }
     saveChats()
     renderChats();
 }
@@ -461,34 +528,276 @@ function saveChats() {
     localStorage.setItem('chatOrder', JSON.stringify(chatOrder));
 }
 
+function saveToCharacters() {
+    if (currentChatId==null) return;
+    const chat=chats[currentChatId]
+    const characterKey=chat.name.replaceAll(" ","_");
+    if (characterKey in Settings.savedCharacters) {
+        if (!confirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`)) {
+            return;
+        }
+    }
+    Settings.savedCharacters[characterKey]={name:chat.name, settings: new Settings(chat.settings), messages:[{message:{role: "system", content: chat.messages.length>0 && chat.messages[0].message.role=="system"?chat.messages[0].message.content:""}}]};
+    saveSettings();
+    renderChats();
+}
+
+function deleteCharacter(event) {
+    const characterKey=event.target.dataset.ID;
+    if (characterKey in Settings.savedCharacters) {
+        if (confirm(`Are you sure to delete the character ${Settings.savedCharacters[characterKey].name}?`)) {
+            delete Settings.savedCharacters[characterKey];
+            saveSettings();
+            renderChats();
+        }
+    }
+}
+
+function addOverlay()
+{
+    // Create the overlay
+    overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.zIndex = '999'; // Ensure the overlay is below the context menu but above everything else
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.0)'; // Transparent background
+
+    document.body.appendChild(overlay);
+}
+function removeOverlay()
+{
+    if (overlay != null) {
+        overlay.remove();
+        overlay = null;
+    }
+}
+
 let currentMenu=null;
-document.getElementById("chat-list").addEventListener('contextmenu', function(event) {
-    if (event.target.id=="new-chat") return;
+let overlay=null;
+
+function isOffspringOf(element, ancestorID)
+{
+    try
+    {
+        if (element.id==ancestorID) return true;
+        ancestor=element.parentNode;
+        while (ancestor!=document)
+        {
+            if (ancestor.id==ancestorID) return true;
+            ancestor=ancestor.parentNode;
+        }
+    }catch(error)
+    {
+        return false;
+    }
+    return false;
+}
+
+function isOffspringOfClass(element, ancestorClass)
+{
+    try
+    {
+        if (element.classList.contains(ancestorClass)) return true;
+        ancestor=element.parentNode;
+        while (ancestor!=document)
+        {
+            if (ancestor.classList.contains(ancestorClass)) return true;
+            ancestor=ancestor.parentNode;
+        }
+    }catch(error)
+    {
+        return false;
+    }
+    return false;
+}
+
+function mouseOnSelection(event) {
+    var selectedText = window.getSelection().toString();
+    if (selectedText.length > 0) {
+        var selection = window.getSelection().getRangeAt(0);
+        var selectedRect = selection.getBoundingClientRect();
+        var mouseX = event.clientX;
+        var mouseY = event.clientY;
+
+        if (
+        mouseX >= selectedRect.left &&
+        mouseX <= selectedRect.right &&
+        mouseY >= selectedRect.top &&
+        mouseY <= selectedRect.bottom
+        ) {
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+// Helper function to convert base64 data to a Blob
+function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
+    const byteCharacters = atob(b64Data);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+    }
+
+    const blob = new Blob(byteArrays, { type: contentType });
+    return blob;
+}
+
+function dealingContextMenu(event)
+{
+    // if (event.target.id=="new-chat" || event.target.parentNode.id=="new-chat") return;
     event.preventDefault();
-  
+
     if (currentMenu!=null)
     {
         currentMenu.remove();
         currentMenu=null;
+        removeOverlay();
     }
-    let target=event.target;
-    if (target.nodeName!='DIV')
+    var menu = null
+    if (mouseOnSelection(event) || event.target.nodeName=="INPUT" || event.target.nodeName=="TEXTAREA")
     {
-        target=target.closest('div');
+        menu=document.createElement('div');
+        menu.id="context-menu";
+        const copyentry=document.createElement("button");
+        copyentry.id="context-menu-copy";
+        copyentry.innerHTML="Copy (Ctrl-C)"
+        copyentry.onclick= () => {
+            var selectedText = window.getSelection().toString();
+            document.execCommand('copy');
+        }
+        const pasteentry=document.createElement("button");
+        pasteentry.id="context-menu-paste";
+        pasteentry.innerHTML="Paste (Ctrl-V)"
+        pasteentry.onclick= () => {
+            // var selectedText = window.getSelection().toString();
+            document.execCommand('paste');
+        }
+        menu.appendChild(copyentry);
+        if (event.target.nodeName=="INPUT" || event.target.nodeName=="TEXTAREA")
+        {
+            const cutentry=document.createElement("button");
+            cutentry.id="context-menu-cut";
+            cutentry.innerHTML="Cut (Ctrl-X)"
+            cutentry.onclick= () => {
+                document.execCommand('cut');
+            }
+            menu.appendChild(cutentry);
+        }
+        menu.appendChild(pasteentry);
     }
-    if (!target) return;
-    if (!target.classList.contains('chat-entry')) return;
-    chatID=target.dataset.ID;
-    var menu = document.createElement('div');
-    menu.innerHTML = `<div id="chat-menu"><button id="chat-rename" onclick="renameChat(event,${chatID})">Rename Chat</button><button id="chat-edit" onclick="editChat(event,${chatID})">Edit Chat</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">Delete Chat</button></div>`;;
+    else if (event.target.nodeName=="IMG")
+    {
+        menu=document.createElement('div');
+        menu.id="context-menu";
+        const copyentry=document.createElement("button");
+        copyentry.id="context-menu-copy";
+        copyentry.innerHTML="Copy (Ctrl-C)"
+        copyentry.onclick= async () => {
+            try {
+                const img = event.target; // The image you want to copy
+                const base64Data = img.src.split(',')[1]; // Split the base64 string to get the data part
+                const contentType = img.src.match(/data:(.*?);base64,/)[1]; // Extract the content type from the base64 string
+                const blob = b64toBlob(base64Data, contentType);
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [blob.type]: blob
+                    })
+                ]);
+                // console.log('Image copied to clipboard');
+            } catch (err) {
+                // console.error('Failed to copy image: ', err);
+                return;
+            }
+        }
+        menu.appendChild(copyentry);
+        // Save button
+        const saveEntry = document.createElement("button");
+        saveEntry.id = "context-menu-save";
+        saveEntry.innerHTML = "Save Image";
+        saveEntry.onclick = () => {
+            const img = event.target; // The image you want to save
+            const a = document.createElement('a');
+            a.href = img.src; // The data URL or blob URL of the image
+            a.download = 'downloaded-image'; // The default filename for the downloaded image
+            document.body.appendChild(a); // Append the anchor to the body
+            a.click(); // Simulate a click on the anchor
+            document.body.removeChild(a); // Remove the anchor from the body
+        };
+        menu.appendChild(saveEntry);
+    }
+    else if (isOffspringOf(event.target,"chat-title") || isOffspringOf(event.target,"chat-character"))
+    {
+        menu=document.createElement('div');
+        menu.id="context-menu";
+        menu.innerHTML=`<button onclick="saveToCharacters()">Save to characters</button>`
+    }
+    else if (isOffspringOf(event.target,"character-menu"))
+    {
+        menu=document.createElement('div');
+        menu.id="context-menu";
+        const characterKey=event.target.id;
+        menu.innerHTML=`<button data--i-d="${characterKey}" onclick="deleteCharacter(event)">Delete character</button>`
+    }
+    else if (isOffspringOf(event.target, "chat-list"))
+    {
+        let target=event.target;
+        if (target.nodeName!='DIV')
+        {
+            target=target.closest('div');
+        }
+        if (!target) return;
+        if (!target.classList.contains('chat-entry')) return;
+        chatID=target.dataset.ID;
+        menu=document.createElement('div');
+        menu.id="context-menu";
+        menu.innerHTML = `<button id="chat-rename" onclick="renameChat(event,${chatID})">Rename Chat</button><button id="chat-edit" onclick="editChat(event,${chatID})">Edit Chat</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">Delete Chat</button>`;
+    }
+    if (menu==null) return;
     menu.style.position = 'absolute';
     menu.style.left = event.pageX + 'px';
     menu.style.top = event.pageY + 'px';
     menu.style.backgroundColor = 'white';
     menu.style.border = '1px solid black';
     menu.style.padding = '5px';
-  
+    menu.style.zIndex = '1000'; // Ensure the overlay is below the context menu but above everything else
+
+    addOverlay()
     document.body.appendChild(menu);
+    // Calculate the menu's position
+    var menuWidth = menu.offsetWidth;
+    var menuHeight = menu.offsetHeight;
+    var pageX = event.pageX;
+    var pageY = event.pageY;
+    var viewportWidth = window.innerWidth;
+    var viewportHeight = window.innerHeight;
+
+    // Check if the menu would go off the right edge of the viewport
+    if (pageX + menuWidth > viewportWidth) {
+        menu.style.left = (viewportWidth - menuWidth) + 'px';
+    } else {
+        menu.style.left = pageX + 'px';
+    }
+
+    // Check if the menu would go off the bottom edge of the viewport
+    if (pageY + menuHeight > viewportHeight) {
+        menu.style.top = (pageY - menuHeight) + 'px';
+    } else {
+        menu.style.top = pageY + 'px';
+    }
     currentMenu=menu;
   
     document.addEventListener('click', function() {
@@ -497,12 +806,20 @@ document.getElementById("chat-list").addEventListener('contextmenu', function(ev
             currentMenu.remove();
             currentMenu=null;
         }
+        removeOverlay();
     }, { once: true });
-});
+}
+
+document.addEventListener('contextmenu', dealingContextMenu);
 
 //Message part
 function renderHeader() {
-    if (currentChatId==null) return;
+    if (currentChatId==null) {
+        document.getElementById('chat-title').innerText="";
+        const quickModels=document.getElementById('quick-model-select');
+        quickModels.innerHTML="";
+        return;
+    }
     document.getElementById('chat-title').innerText=chats[currentChatId].name;
     const quickModels=document.getElementById('quick-model-select');
     quickModels.innerHTML="";
@@ -536,6 +853,7 @@ function changeMessage(event)
     const message=chats[chatID].messages[messageIndex];
     const messageDiv=document.getElementById("message-"+chatID+"-"+messageIndex);
     messageDiv.innerHTML=`<textarea onblur="messageChange(event)" class="message-edit" data-chatID="${chatID}" data-index="${messageIndex}">${message.message.content}</textarea>`;
+    messageDiv.childNodes[0].focus();
 }
 
 function stopOrReGenerate(event)
@@ -566,7 +884,8 @@ function renderMessages() {
     const messages=chats[currentChatId].messages;
     const messagePanel = document.getElementById('message-panel');
     messagePanel.innerHTML = '';
-    messages.forEach(message => {
+    for (let i=0;i< messages.length;++i){
+        message =messages[i];
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
         if (message.message.role != "") messageDiv.classList.add(message.message.role);
@@ -579,7 +898,8 @@ function renderMessages() {
         entryDiv.classList.add('entry')
         const messageHead=document.createElement('div');
         messageHead.classList.add('message-head');
-        const roleName=message.message.role=="system"?"Character Settings":message.message.role;
+        const roleName=i==0 &&message.message.role=="system"?"Character Settings":message.message.role;
+        if (i==0 && message.message.role) entryDiv.id="chat-character";
         if (message.message.role=="user")
             messageHead.innerHTML=`${roleName}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="stopOrReGenerate(event)">${(currentChatId==generatingChatID && messages.indexOf(message)==generatingMessageIndex?"⏹️":"🔃")}</button></div>`;
         else
@@ -609,7 +929,7 @@ function renderMessages() {
             entryDiv.appendChild(usageDiv);
         }
         messagePanel.appendChild(entryDiv);
-    });
+    }
     messagePanel.scrollTop = messagePanel.scrollHeight;
     window.Prism.highlightAll();
 }
