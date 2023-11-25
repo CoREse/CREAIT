@@ -1,6 +1,6 @@
 {
   "name": "creait",
-  "version": "0.9.2",
+  "version": "1.0.0",
   "description": "CREAIT: a open-source AI tool for everyone.",
   "main": "main.js",
   "scripts": {

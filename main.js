@@ -7,6 +7,7 @@ const createWindow = () => {
   });
 
   win.setIcon('src/imgs/icon.png');
+  win.setMenuBarVisibility(false);
 
   win.loadFile('src/index.html');
 }

@@ -1,7 +1,17 @@
 const about={
-    version:"v0.9.2",
+    version:"v1.0.0",
     author:"CRE"
 }
+// let texts=null;
+// async function loadTexts()
+// {
+//     texts=await (await fetch("lang/en-US.json")).json();
+//     for (key of Object.keys(texts["tags"])) {
+//         document.getElementById(key).innerText=texts["tags"][key].text;
+//         init();
+//     }
+// }
+
 class Settings
 {
     constructor(copy=null){
@@ -80,29 +90,55 @@ class Settings
             'tts-1-hd':{service: "OpenAI Create Speech", apiUrl:undefined, apiEndpoint:"/v1/audio/speech"},
         }
     }
-    static initialSavedCharacters={
-        "Answer_to_single_query":{name:"Answer to single query", settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
-        "Answer_to_single_query_(GPT4)":{name:"Answer to single query (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
-        "Translation" :{name:"Translation", settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}],pinned:true},
-        "Translation_(GPT4)":{name:"Translation (GPT4)", settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are a language master, translate any english I input to Chinese, or any other language to English."}}],pinned:true},
-        "Generate_images":{name:"Generate images", settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a image (default 1024*1024) based on your prompt. This character setting is ignored, and the context number is ignored too, it will only answer to one prompt a time."}}],pinned:true},
-        "Generate_speeches":{name:"Generate speeches", settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: "This model would generate a speech based on your input. This character setting is ignored, and the context number is ignored too, it will only answer to one input a time."}}],pinned:true},
-        "Just_chat":{name:"Just chat", settings: new Settings(), messages:[{message:{role: "system", content: "Chat with me."}}], pinned:false},
-    }
+    static initialSavedCharacters={};
     static savedCharacters=JSON.parse(JSON.stringify(Settings.initialSavedCharacters));
 };
 
 let currentChatId = null;
-let chats = {
-    "0": genChatFromSaved(Settings.savedCharacters["Answer_to_single_query"],true),
-    "1": genChatFromSaved(Settings.savedCharacters["Answer_to_single_query_(GPT4)"],true),
-    "2": genChatFromSaved(Settings.savedCharacters["Translation"],true),
-    "3": genChatFromSaved(Settings.savedCharacters["Translation_(GPT4)"],true),
-    "4": genChatFromSaved(Settings.savedCharacters["Generate_images"],true),
-    "5": genChatFromSaved(Settings.savedCharacters["Generate_speeches"],true),
-    "6": genChatFromSaved(Settings.savedCharacters["Just_chat"],false),
+let chats = {}
+let chatOrder=[];
+function getLang() {
+    lang=navigator.language;
+    if (lang.startsWith("zh")) return "zh-CN";
+    return "en-US";
 }
-let chatOrder=["0","1","2","3","4","5","6"];
+let language=getLang();
+function loadLang() {
+    language=getLang();
+    if (localStorage.getItem("language")!=null) language=localStorage.getItem("language");
+}
+function saveLang() {
+    localStorage.setItem("language",language);
+}
+loadLang();
+let texts=languages[language];
+function init() {
+    Settings.initialSavedCharacters[texts["Default characters"]["asq"].name.replaceAll(" ","_")]={name:texts["Default characters"]["asq"].name, settings: new Settings({model:"gpt-3.5-turbo-1106",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["asq4"].name.replaceAll(" ","_")]={name:texts["Default characters"]["asq4"].name, settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: "You are my personal assistant, answer any question I ask."}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["Translator"].name.replaceAll(" ","_")]={name:texts["Default characters"]["Translator"].name, settings: new Settings({contextNumber:0}), messages:[{message:{role: "system", content: texts["Default characters"].Translator.content}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["Translator4"].name.replaceAll(" ","_")]={name:texts["Default characters"]["Translator4"].name, settings: new Settings({model:"gpt-4-1106-preview",contextNumber:0}), messages:[{message:{role: "system", content: texts["Default characters"].Translator4.content}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["Generate images"].name.replaceAll(" ","_")]={name:texts["Default characters"]["Generate images"].name, settings: new Settings({model:"dall-e-3",contextNumber:0}), messages:[{message:{role: "system", content: texts["Default characters"]["Generate images"].content}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["Generate speeches"].name.replaceAll(" ","_")]={name:texts["Default characters"]["Generate speeches"].name, settings: new Settings({model:"tts-1",contextNumber:0}), messages:[{message:{role: "system", content: texts["Default characters"]["Generate speeches"].content}}],pinned:true},
+    Settings.initialSavedCharacters[texts["Default characters"]["Just chat"].name.replaceAll(" ","_")]={name:texts["Default characters"]["Just chat"].name, settings: new Settings(), messages:[{message:{role: "system", content: texts["Default characters"]["Just chat"].content}}], pinned:false},
+    Settings.savedCharacters=JSON.parse(JSON.stringify(Settings.initialSavedCharacters));
+    chats={
+        "0": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["asq"].name.replaceAll(" ","_")],true),
+        "1": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["asq4"].name.replaceAll(" ","_")],true),
+        "2": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["Translator"].name.replaceAll(" ","_")],true),
+        "3": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["Translator4"].name.replaceAll(" ","_")],true),
+        "4": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["Generate images"].name.replaceAll(" ","_")],true),
+        "5": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["Generate speeches"].name.replaceAll(" ","_")],true),
+        "6": genChatFromSaved(Settings.savedCharacters[texts["Default characters"]["Just chat"].name.replaceAll(" ","_")],false),
+    }
+    chatOrder=["0","1","2","3","4","5","6"];
+    for (key of Object.keys(texts["tags"])) {
+        try {
+            document.getElementById(key).innerText=texts["tags"][key].text;
+        } catch (error) {
+        }
+    }
+}
+init();
 
 function onSettingChange(event, settings)
 {
@@ -141,6 +177,26 @@ function onSettingChange(event, settings)
             saveSettings();
             saveChats();
             break;
+        case "language":
+            value=event.target.value;
+            if (value=="undefined") value=undefined;
+            if (value==undefined)
+            {
+                localStorage.removeItem("language");
+            }
+            else
+            {
+                if (event.target.value=="简体中文") {
+                    language="zh-CN";
+                    saveLang();
+                }
+                else if (event.target.value=="English") {
+                    language="en-US";
+                    saveLang();
+                }
+            }
+            location.reload();
+            break;
     }
 }
 
@@ -150,12 +206,31 @@ function openSettings(event, settings=null) {
     if (settings==null)
     {
         settings=Settings;
-        document.getElementById("settings-title").innerHTML="Default Settings";
+        document.getElementById("settings-title").innerHTML=texts.tags["settings-title"].text;
+        languageSelect=document.getElementById("language");
+        document.getElementById("language-p").style.display="block";
+        languageSelect.innerHTML="";
+        selected=undefined;
+        if (localStorage.getItem("language")!=null) selected=localStorage.getItem("language");
+        for (lang of [undefined,"English","简体中文"])
+        {
+            const option=document.createElement("option");
+            option.value=lang;
+            option.innerHTML=lang==undefined?"*default*"+getLang(navigator.language):lang;
+            if (lang=="English") if (selected=="en-US") option.selected=true;
+            if (lang=="简体中文") if (selected=="zh-CN") option.selected=true;
+            if (lang==undefined) if (selected==undefined) option.selected=true;
+            languageSelect.appendChild(option);
+        }
+        languageSelect.onchange=function(event) {
+            onSettingChange(event, settings);
+        };
     }
     else
     {
-        document.getElementById("settings-title").innerHTML="Settings for the Chat";
+        document.getElementById("settings-title").innerHTML=texts.tags["settings-title"].chat;
         modelList=[undefined].concat(modelList);
+        document.getElementById("language-p").style.display="none";
     }
     const apiKeyDiv=document.getElementById('api-key')
     apiKeyDiv.value = settings.getAttribute("apiKey");
@@ -456,7 +531,7 @@ function newChat(savedName=null) {
     if (savedName==null)
     {
         const chatId = Date.now().toString();
-        chats[chatId] = {name:"Untitled", settings: new Settings(), messages:[{message:{role: "system", content: ""}}]};
+        chats[chatId] = {name:texts.others.untitled, settings: new Settings(), messages:[{message:{role: "system", content: ""}}]};
         chatOrder.unshift(chatId);
         reorderChats()
         saveChats();
@@ -536,7 +611,7 @@ function saveToCharacters() {
         // if (!confirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`)) {
         //     return;
         // }
-        userConfirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`, () => {
+        userConfirm(texts["others"]["override-character-confirm"].replaceAll("${value1}", chat.name), () => {
             Settings.savedCharacters[characterKey]={name:chat.name, settings: new Settings(chat.settings), messages:[{message:{role: "system", content: chat.messages.length>0 && chat.messages[0].message.role=="system"?chat.messages[0].message.content:""}}]};
             saveSettings();
             renderChats();
@@ -553,7 +628,7 @@ function saveToCharacters() {
 function deleteCharacter(event) {
     const characterKey=event.target.dataset.ID;
     if (characterKey in Settings.savedCharacters) {
-        userConfirm(`Are you sure to delete the character ${Settings.savedCharacters[characterKey].name}?`, () => {
+        userConfirm(texts.others["delete-character-confirm"].replaceAll("${value1}",Settings.savedCharacters[characterKey].name), () => {
             delete Settings.savedCharacters[characterKey];
             saveSettings();
             renderChats();
@@ -684,14 +759,14 @@ function dealingContextMenu(event)
         menu.id="context-menu";
         const copyentry=document.createElement("button");
         copyentry.id="context-menu-copy";
-        copyentry.innerHTML="Copy (Ctrl-C)"
+        copyentry.innerHTML=texts.others["menu-copy"];
         copyentry.onclick= () => {
             var selectedText = window.getSelection().toString();
             document.execCommand('copy');
         }
         const pasteentry=document.createElement("button");
         pasteentry.id="context-menu-paste";
-        pasteentry.innerHTML="Paste (Ctrl-V)"
+        pasteentry.innerHTML=texts.others["menu-paste"];
         pasteentry.onclick= () => {
             // var selectedText = window.getSelection().toString();
             document.execCommand('paste');
@@ -701,7 +776,7 @@ function dealingContextMenu(event)
         {
             const cutentry=document.createElement("button");
             cutentry.id="context-menu-cut";
-            cutentry.innerHTML="Cut (Ctrl-X)"
+            cutentry.innerHTML=texts.others["menu-cut"];
             cutentry.onclick= () => {
                 document.execCommand('cut');
             }
@@ -715,7 +790,7 @@ function dealingContextMenu(event)
         menu.id="context-menu";
         const copyentry=document.createElement("button");
         copyentry.id="context-menu-copy";
-        copyentry.innerHTML="Copy (Ctrl-C)"
+        copyentry.innerHTML=texts.others["menu-copy"];
         copyentry.onclick= async () => {
             try {
                 const img = event.target; // The image you want to copy
@@ -737,7 +812,7 @@ function dealingContextMenu(event)
         // Save button
         const saveEntry = document.createElement("button");
         saveEntry.id = "context-menu-save";
-        saveEntry.innerHTML = "Save Image";
+        saveEntry.innerHTML = texts.others["menu-save-image"];
         saveEntry.onclick = () => {
             const img = event.target; // The image you want to save
             const a = document.createElement('a');
@@ -753,14 +828,14 @@ function dealingContextMenu(event)
     {
         menu=document.createElement('div');
         menu.id="context-menu";
-        menu.innerHTML=`<button onclick="saveToCharacters()">Save to characters</button>`
+        menu.innerHTML=`<button onclick="saveToCharacters()">${texts.others["menu-save-character"]}</button>`
     }
     else if (isOffspringOf(event.target,"character-menu"))
     {
         menu=document.createElement('div');
         menu.id="context-menu";
         const characterKey=event.target.id;
-        menu.innerHTML=`<button data--i-d="${characterKey}" onclick="deleteCharacter(event)">Delete character</button>`
+        menu.innerHTML=`<button data--i-d="${characterKey}" onclick="deleteCharacter(event)">${texts.others["menu-delete-character"]}</button>`
     }
     else if (isOffspringOf(event.target, "chat-list"))
     {
@@ -774,7 +849,7 @@ function dealingContextMenu(event)
         chatID=target.dataset.ID;
         menu=document.createElement('div');
         menu.id="context-menu";
-        menu.innerHTML = `<button id="chat-rename" onclick="renameChat(event,${chatID})">Rename Chat</button><button id="chat-edit" onclick="editChat(event,${chatID})">Edit Chat</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">Delete Chat</button>`;
+        menu.innerHTML = `<button id="chat-rename" onclick="renameChat(event,${chatID})">${texts.others["menu-rename-chat"]}</button><button id="chat-edit" onclick="editChat(event,${chatID})">${texts.others["menu-edit-chat"]}</button><button id="chat-delete" onclick="deleteChat(event,${chatID})">${texts.others["menu-delete-chat"]}</button>`;
     }
     if (menu==null) return;
     menu.style.position = 'absolute';
@@ -908,7 +983,7 @@ function renderMessages() {
         entryDiv.classList.add('entry')
         const messageHead=document.createElement('div');
         messageHead.classList.add('message-head');
-        const roleName=i==0 &&message.message.role=="system"?"Character Settings":message.message.role;
+        const roleName=texts.roles[i==0 &&message.message.role=="system"?"Character Settings":message.message.role];
         if (i==0 && message.message.role) entryDiv.id="chat-character";
         if (message.message.role=="user")
             messageHead.innerHTML=`${roleName}<div class="unselectable message-controls"><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="changeMessage(event)">✏️</button><button data-chatID="${currentChatId}" data-index="${messageIndex}" onclick="stopOrReGenerate(event)">${(currentChatId==generatingChatID && messages.indexOf(message)==generatingMessageIndex?"⏹️":"🔃")}</button></div>`;
@@ -919,17 +994,17 @@ function renderMessages() {
         let usageString=""
         if (message.usage)
         {
-            usageString+=`Token usage: ${message.usage.prompt_tokens} prompt, ${message.usage.completion_tokens} completion, ${message.usage.total_tokens} total.`
+            usageString+=texts.others["token-usage"].replaceAll("${value1}",message.usage.prompt_tokens).replaceAll("${value2}",message.usage.completion_tokens).replaceAll("${value3}",message.usage.total_tokens);
         }
         if (message.messageTokens)
         {
             if (usageString!="") usageString+=" ";
-            usageString+=`Message tokens: ${message.messageTokens}.`
+            usageString+=texts.others["message-tokens"].replaceAll("${value1}",message.messageTokens);
         }
         if (message.model!=undefined)
         {
             if (usageString!="") usageString+=" ";
-            usageString+=` Model: ${message.model}.`
+            usageString+=texts.others["used-model"].replaceAll("${value1}",message.model);
         }
         if (usageString!="")
         {
@@ -1062,10 +1137,7 @@ function addMessage(chatID, message, location=null) {
     return location;
 }
 
-function getContext(messages,index,settings) {
-    let context=[];
-    if (settings.getAttribute("contextNumber")!=0) context = messages.slice(0,index).filter((m)=>(m.message.role!="error" && (m.hasOwnProperty("fulfilled")?m.fulfilled:true) && (m.specialType==undefined || m.specialType==null))).slice(-settings.getAttribute("contextNumber"));
-    const contextMessage=[];
+function getContext(messages,index,settings) {const contextMessage=[];
     const contextNumber=settings.getAttribute("contextNumber");
     const contextTokens=settings.getAttribute("contextTokens");
     let messageNumber=0;
@@ -1094,14 +1166,17 @@ function getContext(messages,index,settings) {
         contextMessage.unshift(messages[0].message);
     }
     contextMessage.push(messages[index].message)
-    return {messages:contextMessage,tokens:messageTokens};
+    if (messages[index].messageTokens==undefined) messages[index].messageTokens=getTokenNumber(JSON.stringify(messages[index].message),settings.getAttribute("model"));
+    // messageTokens+=messages[index].messageTokens;
+    return {messages:contextMessage,tokens:getTokenNumber(JSON.stringify(contextMessage),settings.getAttribute("model"))};
+    // return {messages:contextMessage,tokens:messageTokens};
 }
 
 async function askService(service,chatID,index,settings) {
     const context = getContext(chats[chatID].messages, index, settings);
-    console.log(context)
+    // console.log(context)
     let responseIndex=null;
-    const initialUsage={prompt_tokens:context.tokens+chats[chatID].messages[index].messageTokens,completion_tokens:0,total_tokens:context.tokens+chats[chatID].messages[index].messageTokens}
+    const initialUsage={prompt_tokens:context.tokens,completion_tokens:0,total_tokens:context.tokens}
     
     let ask=null;
     let specialType=null;
@@ -1131,21 +1206,23 @@ async function askService(service,chatID,index,settings) {
                 if (currentChatId==chatID) renderMessages();
                 break;
             }
-            let noUsage=false;
             if (responseIndex==null)
             {
-                responseIndex=addMessage(chatID, response.data);
+                responseIndex=addMessage(chatID, JSON.parse(JSON.stringify(response.data)));
                 if (response.data.message.role=="") continue;
                 if (response.data.usage==undefined)
                 {
-                    noUsage=true;
                     chats[chatID].messages[responseIndex].usage=initialUsage;
                 }
                 chats[chatID].messages[responseIndex].messageTokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
                 if (specialType!=null) chats[chatID].messages[responseIndex].specialType=specialType;
             }
-            else chats[chatID].messages[responseIndex]=response.data;
-            if (response.data.usage==undefined || noUsage)
+            else
+            {
+                for (key of Object.keys(response.data))
+                    chats[chatID].messages[responseIndex][key]=JSON.parse(JSON.stringify(response.data[key]));
+            }
+            if (response.data.usage==undefined)
             {
                 chats[chatID].messages[responseIndex].usage.completion_tokens=getTokenNumber(JSON.stringify(chats[chatID].messages[responseIndex].message),settings.getAttribute("model"));
                 chats[chatID].messages[responseIndex].usage.total_tokens=initialUsage.prompt_tokens+chats[chatID].messages[responseIndex].usage.completion_tokens;
@@ -1156,7 +1233,7 @@ async function askService(service,chatID,index,settings) {
             if (response.status=="completed") {
                 chats[chatID].messages[index].fulfilled = true;
                 saveChats();
-                if (chats[chatID].name=="Untitled") generateTitle(chatID);
+                if (chats[chatID].name==texts.others.untitled) generateTitle(chatID);
                 break;
             }
             if (stopGenerating)
@@ -1181,11 +1258,11 @@ function userConfirm(message,yesCallback=null,noCallback=null)
     let dialog=document.getElementById('confirm-dialog');
     dialog.innerHTML=`<p>${message}</p>`;
     const yesButton=document.createElement('button');
-    yesButton.innerHTML="Yes";
+    yesButton.innerHTML=texts.others["confirm-yes"];
     yesButton.onclick=yes;
     dialog.appendChild(yesButton);
     const noButton=document.createElement('button');
-    noButton.innerHTML="No";
+    noButton.innerHTML=texts.others["confirm-no"];
     noButton.onclick=no;
     dialog.appendChild(noButton);
     dialog.style.display = 'flex';
@@ -1205,7 +1282,7 @@ function userConfirm(message,yesCallback=null,noCallback=null)
 function openAbout(event) {
     aboutDiv=document.getElementById('about-dialog');
     aboutDiv.style.display = 'block';
-    aboutDiv.innerHTML=`<p>Version: ${about.version}</p><p>Author: ${about.author}</p><button onclick="reset()">Clear and Reset</button><button onclick="closeAbout()">Close</button>`;
+    aboutDiv.innerHTML=`<p>${texts.others["about-version"].replaceAll("${value1}",about.version)}</p><p>${texts.others["about-author"].replaceAll("${value1}",about.author)}</p><button onclick="reset()">${texts.others["about-reset-button"]}</button><button onclick="closeAbout()">${texts.others["about-close-button"]}</button>`;
 }
 
 function reset(event) {
@@ -1214,7 +1291,7 @@ function reset(event) {
     //     localStorage.clear();
     //     location.reload();
     // }
-    userConfirm("Are you sure to CLEAR ALL data and reset the app?",()=>{
+    userConfirm(texts.others["reset-confirm"],()=>{
         localStorage.clear();
         location.reload();
     });

@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,11 +10,11 @@
 <body>
 <div id="left-panel">
     <div id="logo-panel"><image id="icon" src="imgs/icon.png"/><image id="logo" src="imgs/logo.png"/><button id="fold-left-panel" onclick="toggleLeftPanel(event)">|←</button></div>
-    <button id="new-chat" onclick="newChat()"><span>New Chat</span><span id="character-button" onclick="toggleCharacterMenu(event)">🤖</span><div id="character-menu" class="dropdown-menu"></div></button>
+    <button id="new-chat" onclick="newChat()"><span id="new-chat-text">New Chat</span><span id="character-button" onclick="toggleCharacterMenu(event)">🤖</span><div id="character-menu" class="dropdown-menu"></div></button>
     <div id="chat-list">
         <!-- Chat list will be dynamically inserted here -->
     </div>
-    <div id="toolbar"><button onclick="openSettings()">Settings</button><button onclick="openAbout()">About</button></div>
+    <div id="toolbar"><button id="open-settings-button" onclick="openSettings()">Settings</button><button id="open-about-button" onclick="openAbout()">About</button></div>
 </div>
 <div id="chat-window">
     <div id="chat-header">
@@ -41,18 +40,20 @@
 </div>
 <div id="settings-dialog">
     <h3 id="settings-title">Default settings:</h3>
-    <p>API URL: <input type="text" id="api-url"></p>
-    <p>API key: <input type="text" id="api-key"></p>
-    <p>Model: <select id="model" onchange="settingsChange(event)"></select></p>
-    <p id="other-model-p">Other model: <input type="text" id="other-model"></p>
-    <p>Max context number (exclude current message): <input type="number" min="0" id="context-number"></p>
-    <p>Max context tokens (exclude current message): <input type="number" min="0" id="context-tokens"></p>
-    <button onclick="closeSettings()">Close</button>
+    <p><span id="settings-api-url-text">API URL: </span><input type="text" id="api-url"></p>
+    <p><span id="settings-api-key-text">API key: </span><input type="text" id="api-key"></p>
+    <p><span id="settings-model-text">Model: </span><select id="model"></select></p>
+    <p id="other-model-p"><span id="settings-other-model-text">Other model: </span><input type="text" id="other-model"></p>
+    <p><span id="settings-context-number-text">Max context number (exclude current message): </span><input type="number" min="0" id="context-number"></p>
+    <p><span id="settings-context-tokens-text">Max context tokens (exclude current message): </span><input type="number" min="0" id="context-tokens"></p>
+    <p id="language-p"><span id="settings-language-text">Languages: </span><select id="language"></select></p>
+    <button id="close-settings" onclick="closeSettings()">Close</button>
 </div>
 <div id="about-dialog">
 </div>
 <div id="confirm-dialog" class="confirm-dialog">
 </div>
+<script src="lang/languages.js"></script>
 <script src="scripts/services.js"></script>
 <script src="scripts/tiktoken.js"></script>
 <script src="scripts/base.js"></script>
