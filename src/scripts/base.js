@@ -1,5 +1,5 @@
 const about={
-    version:"v0.9.0",
+    version:"v0.9.1",
     author:"CRE"
 }
 class Settings
@@ -533,23 +533,31 @@ function saveToCharacters() {
     const chat=chats[currentChatId]
     const characterKey=chat.name.replaceAll(" ","_");
     if (characterKey in Settings.savedCharacters) {
-        if (!confirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`)) {
-            return;
-        }
+        // if (!confirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`)) {
+        //     return;
+        // }
+        userConfirm(`You already have a saved character named ${chat.name}, are you sure to replace it?`, () => {
+            Settings.savedCharacters[characterKey]={name:chat.name, settings: new Settings(chat.settings), messages:[{message:{role: "system", content: chat.messages.length>0 && chat.messages[0].message.role=="system"?chat.messages[0].message.content:""}}]};
+            saveSettings();
+            renderChats();
+        });
     }
-    Settings.savedCharacters[characterKey]={name:chat.name, settings: new Settings(chat.settings), messages:[{message:{role: "system", content: chat.messages.length>0 && chat.messages[0].message.role=="system"?chat.messages[0].message.content:""}}]};
-    saveSettings();
-    renderChats();
+    else
+    {
+        Settings.savedCharacters[characterKey]={name:chat.name, settings: new Settings(chat.settings), messages:[{message:{role: "system", content: chat.messages.length>0 && chat.messages[0].message.role=="system"?chat.messages[0].message.content:""}}]};
+        saveSettings();
+        renderChats();
+    }
 }
 
 function deleteCharacter(event) {
     const characterKey=event.target.dataset.ID;
     if (characterKey in Settings.savedCharacters) {
-        if (confirm(`Are you sure to delete the character ${Settings.savedCharacters[characterKey].name}?`)) {
+        userConfirm(`Are you sure to delete the character ${Settings.savedCharacters[characterKey].name}?`, () => {
             delete Settings.savedCharacters[characterKey];
             saveSettings();
             renderChats();
-        }
+        });
     }
 }
 
@@ -566,17 +574,19 @@ function addOverlay()
     overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.0)'; // Transparent background
 
     document.body.appendChild(overlay);
+    overlayList.push(overlay);
 }
 function removeOverlay()
 {
-    if (overlay != null) {
+    if (overlayList.length>0)
+    {
+        overlay=overlayList.pop();
         overlay.remove();
-        overlay = null;
     }
 }
 
 let currentMenu=null;
-let overlay=null;
+let overlayList=[];
 
 function isOffspringOf(element, ancestorID)
 {
@@ -1166,6 +1176,32 @@ async function askService(service,chatID,index,settings) {
     renderMessages();
 }
 
+function userConfirm(message,yesCallback=null,noCallback=null)
+{
+    let dialog=document.getElementById('confirm-dialog');
+    dialog.innerHTML=`<p>${message}</p>`;
+    const yesButton=document.createElement('button');
+    yesButton.innerHTML="Yes";
+    yesButton.onclick=yes;
+    dialog.appendChild(yesButton);
+    const noButton=document.createElement('button');
+    noButton.innerHTML="No";
+    noButton.onclick=no;
+    dialog.appendChild(noButton);
+    dialog.style.display = 'flex';
+    addOverlay();
+    function yes() {
+        dialog.style.display = 'none';
+        removeOverlay();
+        if (yesCallback!=null) yesCallback();
+    }
+    function no() {
+        dialog.style.display = 'none';
+        removeOverlay();
+        if (noCallback!=null) noCallback();
+    }
+}
+
 function openAbout(event) {
     aboutDiv=document.getElementById('about-dialog');
     aboutDiv.style.display = 'block';
@@ -1173,11 +1209,15 @@ function openAbout(event) {
 }
 
 function reset(event) {
-    if (confirm("Are you sure to CLEAR ALL data and reset the app?"))
-    {
+    // if (confirm("Are you sure to CLEAR ALL data and reset the app?"))
+    // {
+    //     localStorage.clear();
+    //     location.reload();
+    // }
+    userConfirm("Are you sure to CLEAR ALL data and reset the app?",()=>{
         localStorage.clear();
         location.reload();
-    }
+    });
 }
 
 function closeAbout(event) {

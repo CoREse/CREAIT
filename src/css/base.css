@@ -449,3 +449,28 @@ div.chat-entry.over {
 .dropdown-menu .menu-entry:hover {
     background-color: #f1f1f1;
 }
+
+.confirm-dialog {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    padding: 20px;
+    border: 1px solid #ccc;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    align-items: center;
+    flex-direction: column;
+}
+button {
+    box-sizing: border-box;
+    border: none;
+    background-color: white;
+    border-radius: 10%;
+    padding:5px;
+}
+button:hover {
+    background-color: #ddd;
+}
