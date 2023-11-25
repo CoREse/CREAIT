@@ -35,6 +35,9 @@ const languages={
             "settings-language-text": {
                 "text": "Language: "
             },
+            "settings-selectable-usage-text": {
+                "text": "Usage info selectable"
+            },
             "close-settings": {
                 "text": "Close"
             }
@@ -133,6 +136,9 @@ const languages={
             },
             "settings-language-text": {
                 "text": "语言："
+            },
+            "settings-selectable-usage-text": {
+                "text": "使用统计可选中"
             },
             "close-settings": {
                 "text": "关闭"

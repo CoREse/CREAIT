@@ -1,5 +1,5 @@
 const about={
-    version:"v1.0.0",
+    version:"v1.0.1",
     author:"CRE"
 }
 // let texts=null;
@@ -97,6 +97,7 @@ class Settings
 let currentChatId = null;
 let chats = {}
 let chatOrder=[];
+let selectableUsage=false;
 function getLang() {
     lang=navigator.language;
     if (lang.startsWith("zh")) return "zh-CN";
@@ -195,20 +196,39 @@ function onSettingChange(event, settings)
                     saveLang();
                 }
             }
-            location.reload();
+            reloadNeeded=true;
+            break;
+        case "selectable-usage":
+            if (event.target.checked)
+            {
+                selectableUsage=true;
+                localStorage.setItem("selectableUsage","true");
+            }
+            else
+            {
+                selectableUsage=false;
+                localStorage.setItem("selectableUsage","false");
+            }
+            reloadNeeded=true;
             break;
     }
 }
 
 function openSettings(event, settings=null) {
     document.getElementById('settings-dialog').style.display = 'block';
+    addOverlay();
     let modelList=Object.keys(Settings.settingAlternates.modelSet).concat('[Other]');
     if (settings==null)
     {
         settings=Settings;
         document.getElementById("settings-title").innerHTML=texts.tags["settings-title"].text;
         languageSelect=document.getElementById("language");
-        document.getElementById("language-p").style.display="block";
+        const appSettings=document.getElementsByClassName("app-settings")
+        for (s of appSettings)
+        {
+            s.style.display="block";
+            if (s.classList.contains("flex")) s.style.display="flex";
+        }
         languageSelect.innerHTML="";
         selected=undefined;
         if (localStorage.getItem("language")!=null) selected=localStorage.getItem("language");
@@ -225,12 +245,19 @@ function openSettings(event, settings=null) {
         languageSelect.onchange=function(event) {
             onSettingChange(event, settings);
         };
+        selectableUsageInput=document.getElementById("selectable-usage");
+        if (selectableUsage) selectableUsageInput.checked=true;
+        else selectableUsageInput.checked=false;
+        selectableUsageInput.onchange=function(event) {
+            onSettingChange(event,settings);
+        }
     }
     else
     {
         document.getElementById("settings-title").innerHTML=texts.tags["settings-title"].chat;
         modelList=[undefined].concat(modelList);
-        document.getElementById("language-p").style.display="none";
+        const appSettings=document.getElementsByClassName("app-settings")
+        for (s of appSettings) s.style.display="none";
     }
     const apiKeyDiv=document.getElementById('api-key')
     apiKeyDiv.value = settings.getAttribute("apiKey");
@@ -294,6 +321,8 @@ function saveSettings() {
 
 function closeSettings() {
     document.getElementById('settings-dialog').style.display = 'none';
+    if (reloadNeeded) location.reload();
+    removeOverlay();
 }
 
 function onChatSettings(event) {
@@ -327,6 +356,7 @@ function quickChange(event) {
 
 // Load settings and chats from local storage
 window.onload = function() {
+    if (localStorage.getItem("selectableUsage")!=null) selectableUsage=localStorage.getItem("selectableUsage")=="true";
     loadSettings();
     loadChats();
     renderChats();
@@ -753,7 +783,7 @@ function dealingContextMenu(event)
         removeOverlay();
     }
     var menu = null
-    if (mouseOnSelection(event) || event.target.nodeName=="INPUT" || event.target.nodeName=="TEXTAREA")
+    if (mouseOnSelection(event) || (event.target.nodeName=="INPUT" && (event.target.type=="text" || event.target.type=="number")) || event.target.nodeName=="TEXTAREA")
     {
         menu=document.createElement('div');
         menu.id="context-menu";
@@ -1011,6 +1041,7 @@ function renderMessages() {
             const usageDiv=document.createElement("div");
             usageDiv.innerHTML=usageString;
             usageDiv.classList.add("usage");
+            if (!selectableUsage) usageDiv.classList.add("unselectable");
             entryDiv.appendChild(usageDiv);
         }
         messagePanel.appendChild(entryDiv);
