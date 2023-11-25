@@ -1,5 +1,5 @@
 const about={
-    version:"v0.9.1",
+    version:"v0.9.2",
     author:"CRE"
 }
 class Settings
