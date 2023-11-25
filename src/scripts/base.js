@@ -1,5 +1,5 @@
 const about={
-    version:"v1.0.1",
+    version:"v1.0.2",
     author:"CRE"
 }
 // let texts=null;
@@ -98,6 +98,7 @@ let currentChatId = null;
 let chats = {}
 let chatOrder=[];
 let selectableUsage=false;
+let reloadNeeded=false;
 function getLang() {
     lang=navigator.language;
     if (lang.startsWith("zh")) return "zh-CN";
