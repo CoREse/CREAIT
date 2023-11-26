@@ -1,26 +1,8 @@
 {
-  "name": "creait",
-  "version": "1.0.2",
-  "description": "CREAIT: a open-source AI tool for everyone.",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron-forge start",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
-  },
-  "author": "CRE",
-  "license": "MIT",
   "devDependencies": {
-    "@electron-forge/cli": "^7.1.0",
-    "@electron-forge/maker-deb": "^7.1.0",
-    "@electron-forge/maker-rpm": "^7.1.0",
-    "@electron-forge/maker-squirrel": "^7.1.0",
-    "@electron-forge/maker-zip": "^7.1.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.1.0",
-    "electron": "^27.1.0"
+    "@tauri-apps/cli": "^1.5.6"
   },
-  "dependencies": {
-    "electron-squirrel-startup": "^1.0.0"
+  "scripts": {
+    "tauri": "tauri"
   }
 }
