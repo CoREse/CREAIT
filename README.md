@@ -23,6 +23,7 @@ Here is a simple list of what CREAIT can do or will support soon:
 -   [x] Interact with tts-1
 -   [x] Markdown and code display
 -   [x] Ability to add more custom models (in app or by add your own code)
+-   [x] Quick settings for chat
 -   [x] Stream chat
 -   [x] Different settings for different chat
 -   [x] Character settings and save
