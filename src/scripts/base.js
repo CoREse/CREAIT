@@ -1,6 +1,6 @@
 const about={
     version:"v1.0.2",
-    author:"CRE"
+    author:"CRE (https://github.com/CoREse/CREAIT)",
 }
 // let texts=null;
 // async function loadTexts()
