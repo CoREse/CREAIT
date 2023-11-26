@@ -5,7 +5,7 @@
 
 其它语言：<a href="./README.md">English</a>
 
-## CREATI
+## CREAIT
 CREAIT (CRE AI Tool 或 CREative AI Tool) 是个能利用现有的强大AI的强大的工具。
 
 ## CREAIT介绍

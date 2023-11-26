@@ -5,7 +5,7 @@
 
 Other languages: <a href="./README.zh.md">中文</a>
 
-## CREATI
+## CREAIT
 CREAIT (CRE AI Tool or CREative AI Tool) is a versatile and open-source tool to utilize the magnificent AI now existing.
 
 ## Why CREAIT?
