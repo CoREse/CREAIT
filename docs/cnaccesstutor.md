@@ -38,6 +38,6 @@ TL;DR太长不看版：1.下载文章末尾的程序CREAIT，安装启动。2.<a
 
 大概就是这么多！祝大家工作学习生活顺利！
 
-<a href="https://github.com/CoREse/CREAIT/releases/download/v1.0.2/CREAIT_1.0.2_x64_en-US.msi">下载CREAIT</a>
+<a href="https://github.com/CoREse/CREAIT/releases/latest">下载CREAIT</a>
 
 <a href="https://github.com/CoREse/CREAIT/tree/master/docs/reverseproxy">反向代理</a>
