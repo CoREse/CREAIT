@@ -5,6 +5,22 @@ const ServiceTable={
     "OpenAI Create Speech": createSpeechOpenAI
 }
 
+function convertBlobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = function () {
+            resolve(reader.result);
+        };
+
+        reader.onerror = function (error) {
+            reject(error);
+        };
+
+        reader.readAsDataURL(blob);
+    });
+}
+
 // Helper function to create a timeout promise
 function createTimeoutPromise(duration) {
     return new Promise((resolve, reject) => {
@@ -229,7 +245,10 @@ async function * createSpeechOpenAI(apiKey, model, input, voice="alloy", speed="
             response.blob(),
             createTimeoutPromise(10000)
         ])
-        const url = URL.createObjectURL(blob);
+        const url = await Promise.race([
+            convertBlobToBase64(blob),
+            createTimeoutPromise(10000)
+        ])
         yield {status: "completed", data: { message: { role: "assistant", content: `<audio controls="true" src="${url}" type="audio/mpeg"></audio>`}}};
     }
     catch(error) {

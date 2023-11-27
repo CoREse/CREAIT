@@ -1,5 +1,5 @@
 const about={
-    version:"v1.0.2",
+    version:"v1.0.3",
     author:"CRE (https://github.com/CoREse/CREAIT)",
 }
 // let texts=null;
