@@ -49,6 +49,7 @@ CREAIT现在可以利用OpenAI的API，不仅可以和著名的ChatGPT聊天(gpt
 -   marked (https://github.com/markedjs/marked)
 -   PrismJS (https://prismjs.com/)
 -   fa (https://fortawesome.com)
+-   DOMPurify (https://github.com/cure53/DOMPurify)
 
 ## 支持
 如果你喜欢这个项目，给个打赏呗~

@@ -1,5 +1,5 @@
 const about={
-    version:"v1.0.3",
+    version:"v1.0.4",
     author:"CRE (https://github.com/CoREse/CREAIT)",
 }
 // let texts=null;
@@ -1007,7 +1007,14 @@ function renderMessages() {
         if (message.message.role != "") messageDiv.classList.add(message.message.role);
         // messageDiv.innerHTML=message.message.content;
         // messageDiv.innerHTML = window.Prism.highlightElement(marked.parse(message.message.content));//won't work since not every element contains a code tag
-        messageDiv.innerHTML = marked.parse(message.message.content);
+        // console.log(message.message.content);
+        San=DOMPurify.sanitize(message.message.content)
+        sc=message.message.content.split("```");
+        ss=San.split("```");
+        for (let si=0;si<sc.length;si+=2) sc[si]=ss[si];
+        // console.log(sc);
+        // console.log(sc.join("```"));
+        messageDiv.innerHTML = marked.parse(sc.join("```"));
         const messageIndex=messages.indexOf(message);
         messageDiv.setAttribute("id","message-"+currentChatId+"-"+messageIndex);
         const entryDiv=document.createElement('div');

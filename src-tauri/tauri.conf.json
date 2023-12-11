@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "CREAIT",
-    "version": "1.0.3"
+    "version": "1.0.4"
   },
   "tauri": {
     "allowlist": {
@@ -59,7 +59,7 @@
         "height": 720,
         "resizable": true,
         "title": "CREAIT",
-        "width": 1400
+        "width": 1280
       }
     ]
   }

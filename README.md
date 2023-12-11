@@ -47,6 +47,7 @@ Opensource projects of which codes are used in the source code:
 -   marked (https://github.com/markedjs/marked)
 -   PrismJS (https://prismjs.com/)
 -   fa (https://fortawesome.com)
+-   DOMPurify (https://github.com/cure53/DOMPurify)
 
 ## Support
 If you like the project, maybe consider buy me a coffee.

@@ -1,6 +1,6 @@
 [package]
 name = "creait"
-version = "1.0.3"
+version = "1.0.4"
 description = "CREAIT: A open-source AI tool for everyone."
 authors = ["CRE"]
 license = "MIT"

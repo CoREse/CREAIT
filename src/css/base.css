@@ -5,6 +5,7 @@ body {
     display: flex;
     height: 100vh;
     background-color: #f7f7f7;
+    overflow: auto;
 }
 #chat-list {
     overflow-y: auto;
@@ -53,6 +54,8 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    width: calc(100% - 255px);
+    box-sizing: border-box;
 }
 #message-panel {
     flex-grow: 1;
@@ -69,6 +72,7 @@ body {
     min-height: 50px;
     /* min-width: 95%;
     max-width: 95%; */
+    overflow-x: auto;
 }
 .user {
     background-color: #ffffff;
